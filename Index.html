@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket Scanner</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    input {
+      font-size: 20px;
+      padding: 12px;
+      width: 200px;
+      text-align: center;
+      border-radius: 8px;
+      border: 1px solid #aaa;
+    }
+
+    button {
+      font-size: 20px;
+      padding: 12px 20px;
+      margin: 15px 5px;
+      border: 0;
+      border-radius: 8px;
+      background: #222;
+      color: white;
+    }
+
+    #video {
+      width: 100%;
+      max-width: 500px;
+      margin-top: 15px;
+      border-radius: 12px;
+      background: black;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 12px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🎟️ Ticket Scanner</h1>
+
+<input
+  id="pin"
+  type="password"
+  placeholder="Scanner PIN"
+  inputmode="numeric"
+>
+
+<br>
+
+<button onclick="startScanner()">
+  📷 Scanner starten
+</button>
+
+<video id="video" playsinline></video>
+
+<canvas id="canvas"></canvas>
+
+<div id="result"></div>
+
+<script>
+
+const APPS_SCRIPT_URL =
+"https://script.google.com/macros/s/AKfycbxp1TsGoUHsXG4FuxuW2EDE3Pexapm6HPHDmvC2DKXplLQ_hTPhqPEBciF617TGTzb9/exec";
+
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+let scanning = false;
+
+async function startScanner() {
+
+  const pin = document.getElementById("pin").value;
+  const result = document.getElementById("result");
+
+  if (!pin) {
+    alert("Vul eerst de PIN in.");
+    return;
+  }
+
+  result.innerHTML = "📷 Camera wordt gestart...";
+
+  try {
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: {
+          ideal: "environment"
+        }
+      },
+      audio: false
+    });
+
+    video.srcObject = stream;
+
+    await video.play();
+
+    scanning = true;
+
+    result.innerHTML = "🟢 Richt de camera op de QR-code.";
+
+    scanQR(pin);
+
+  } catch (error) {
+
+    result.innerHTML =
+      "❌ Camera kan niet worden gestart.<br><br>" +
+      error.name + ": " + error.message;
+
+  }
+}
+
+
+function scanQR(pin) {
+
+  if (!scanning) return;
+
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    const imageData = ctx.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    const code = jsQR(
+      imageData.data,
+      imageData.width,
+      imageData.height
+    );
+
+    if (code) {
+
+      scanning = false;
+
+      const token = code.data;
+
+      controleerTicket(token, pin);
+
+      return;
+    }
+  }
+
+  requestAnimationFrame(function() {
+    scanQR(pin);
+  });
+}
+
+
+function controleerTicket(token, pin) {
+
+  const result = document.getElementById("result");
+
+  result.innerHTML = "⏳ Ticket controleren...";
+
+  const callbackNaam =
+    "ticketCallback_" + Date.now();
+
+  window[callbackNaam] = function(antwoord) {
+
+    if (antwoord.geldig) {
+
+      result.style.background = "#c8f7d0";
+
+      result.innerHTML =
+        "✅ GELDIG TICKET<br><br>" +
+        "<b>" + antwoord.naam + "</b><br><br>" +
+        "Aantal tickets: " + antwoord.aantal;
+
+    } else {
+
+      result.style.background = "#ffcaca";
+
+      result.innerHTML =
+        "❌ ONGELDIG TICKET<br><br>" +
+        antwoord.melding;
+    }
+
+    setTimeout(function() {
+
+      result.style.background = "";
+
+      result.innerHTML =
+        "🟢 Klaar voor volgende ticket.";
+
+      scanning = true;
+
+      scanQR(pin);
+
+    }, 3000);
+  };
+
+
+  const script = document.createElement("script");
+
+  script.src =
+    APPS_SCRIPT_URL +
+    "?actie=scan" +
+    "&token=" + encodeURIComponent(token) +
+    "&pin=" + encodeURIComponent(pin) +
+    "&callback=" + callbackNaam;
+
+  document.body.appendChild(script);
+}
+
+</script>
+
+</body>
+</html>

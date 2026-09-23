@@ -1,233 +1,275 @@
+```html
 <!DOCTYPE html>
 <html lang="nl">
+
 <head>
 
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
 
-  <title>Ticket Scanner</title>
+<title>Ticket Scanner</title>
 
-  <!-- QR-code scanner -->
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
-  <style>
+<style>
 
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
-    }
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+  background: #f5f5f5;
+}
 
-    h1 {
-      margin-bottom: 20px;
-    }
+h1 {
+  margin-bottom: 20px;
+}
 
-    input {
-      font-size: 20px;
-      padding: 12px;
-      width: 200px;
-      text-align: center;
-      border-radius: 8px;
-      border: 1px solid #aaa;
-    }
+input {
+  font-size: 20px;
+  padding: 12px;
+  width: 200px;
+  text-align: center;
+  border-radius: 8px;
+  border: 1px solid #aaa;
+}
 
-    button {
-      font-size: 20px;
-      padding: 12px 20px;
-      margin: 15px 5px;
-      border: 0;
-      border-radius: 8px;
-      background: #222;
-      color: white;
-    }
+button {
+  font-size: 20px;
+  padding: 12px 20px;
+  margin: 15px 5px;
+  border: 0;
+  border-radius: 8px;
+  background: #222;
+  color: white;
+}
 
-    button:active {
-      transform: scale(0.98);
-    }
+button:active {
+  transform: scale(0.98);
+}
 
-    #video {
-      width: 100%;
-      max-width: 500px;
-      margin-top: 15px;
-      border-radius: 12px;
-      background: black;
-    }
+#video {
+  width: 100%;
+  max-width: 500px;
+  margin-top: 15px;
+  border-radius: 12px;
+  background: black;
+}
 
-    #result {
-      margin-top: 20px;
-      padding: 20px;
-      border-radius: 12px;
-      font-size: 22px;
-      font-weight: bold;
-    }
+#result {
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 12px;
+  font-size: 22px;
+  font-weight: bold;
+}
 
-    canvas {
-      display: none;
-    }
+canvas {
+  display: none;
+}
 
-  </style>
+</style>
 
 </head>
 
+
 <body>
 
-  <h1>🎟️ Ticket Scanner</h1>
+<h1>🎟️ Ticket Scanner</h1>
 
-  <input
-    id="pin"
-    type="password"
-    placeholder="Scanner PIN"
-    inputmode="numeric"
-    autocomplete="off"
-  >
 
-  <br>
+<input
+  id="pin"
+  type="password"
+  placeholder="Scanner PIN"
+  inputmode="numeric"
+  autocomplete="off"
+>
 
-  <button
-    id="startButton"
-    type="button"
-    onclick="startScanner()"
-  >
-    📷 Scanner starten
-  </button>
+<br>
 
-  <video
-    id="video"
-    playsinline
-    autoplay
-  ></video>
 
-  <canvas id="canvas"></canvas>
+<button
+  id="startButton"
+  type="button"
+  onclick="startScanner()"
+>
+  📷 Scanner starten
+</button>
 
-  <div id="result"></div>
+
+<video
+  id="video"
+  playsinline
+  autoplay
+></video>
+
+
+<canvas id="canvas"></canvas>
+
+
+<div id="result"></div>
 
 
 <script>
 
-  /*
-   * JOUW NIEUWE GOOGLE APPS SCRIPT WEBAPP
-   */
-  const APPS_SCRIPT_URL =
-    "https://script.google.com/macros/s/AKfycbwhaQVw2x3X21Xt7zAaxmwU12Tua1ZtkDFjANP-URSo2CZk60PLJt28F8VlM5ymojhO/exec";
+/************************************************
+ * JOUW NIEUWE GOOGLE APPS SCRIPT URL
+ ************************************************/
+
+const APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbzDpQQLQ2VWroJLGCbIJfhBjcxjIQG3mxD3vxdluHUvYI-gjLn28OaQQQEm2JN1aWcS/exec";
 
 
-  let video = document.getElementById("video");
-  let canvas = document.getElementById("canvas");
-  let ctx = canvas.getContext("2d");
+/************************************************
+ * ELEMENTEN
+ ************************************************/
 
-  let scanning = false;
-  let stream = null;
+const video =
+  document.getElementById("video");
 
+const canvas =
+  document.getElementById("canvas");
 
-  /*
-   * SCANNER STARTEN
-   */
-  async function startScanner() {
+const ctx =
+  canvas.getContext("2d");
 
-    const pin =
-      document.getElementById("pin").value.trim();
-
-    const result =
-      document.getElementById("result");
+const result =
+  document.getElementById("result");
 
 
-    if (!pin) {
+let scanning = false;
 
-      alert("Vul eerst de Scanner PIN in.");
-
-      return;
-    }
+let stream = null;
 
 
-    result.style.background = "";
-    result.innerHTML =
-      "📷 Camera wordt gestart...";
+/************************************************
+ * SCANNER STARTEN
+ ************************************************/
+
+async function startScanner() {
+
+  const pin =
+    document
+      .getElementById("pin")
+      .value
+      .trim();
 
 
-    try {
+  if (!pin) {
 
-      /*
-       * Achtercamera van de iPhone gebruiken
-       */
-      stream =
-        await navigator.mediaDevices.getUserMedia({
+    alert(
+      "Vul eerst de Scanner PIN in."
+    );
 
-          video: {
-            facingMode: {
-              ideal: "environment"
-            }
-          },
-
-          audio: false
-
-        });
-
-
-      video.srcObject = stream;
-
-      await video.play();
-
-
-      scanning = true;
-
-
-      result.innerHTML =
-        "🟢 Richt de camera op de QR-code.";
-
-
-      scanQR(pin);
-
-
-    } catch (error) {
-
-      scanning = false;
-
-
-      result.style.background = "#ffcaca";
-
-      result.innerHTML =
-        "❌ Camera kan niet worden gestart.<br><br>" +
-        "<small>" +
-        error.name +
-        ": " +
-        error.message +
-        "</small>";
-
-    }
-
+    return;
   }
 
 
-  /*
-   * QR-CODE SCANNEN
-   */
-  function scanQR(pin) {
+  result.style.background = "";
 
-    if (!scanning) {
-      return;
-    }
+  result.innerHTML =
+    "📷 Camera wordt gestart...";
 
 
-    if (
-      video.readyState >=
-      video.HAVE_ENOUGH_DATA
-    ) {
+  try {
 
-      canvas.width =
-        video.videoWidth;
+    stream =
+      await navigator.mediaDevices.getUserMedia({
 
-      canvas.height =
-        video.videoHeight;
+        video: {
+
+          facingMode: {
+            ideal: "environment"
+          }
+
+        },
+
+        audio: false
+
+      });
 
 
-      ctx.drawImage(
-        video,
+    video.srcObject = stream;
+
+    await video.play();
+
+
+    scanning = true;
+
+
+    result.innerHTML =
+      "🟢 Richt de camera op de QR-code.";
+
+
+    scanQR(pin);
+
+
+  } catch (error) {
+
+    scanning = false;
+
+
+    result.style.background =
+      "#ffcaca";
+
+
+    result.innerHTML =
+
+      "❌ Camera kan niet worden gestart." +
+      "<br><br>" +
+
+      "<small>" +
+
+      error.name +
+      ": " +
+      error.message +
+
+      "</small>";
+
+  }
+
+}
+
+
+/************************************************
+ * QR-CODE SCANNEN
+ ************************************************/
+
+function scanQR(pin) {
+
+  if (!scanning) {
+    return;
+  }
+
+
+  if (
+    video.readyState >=
+    video.HAVE_ENOUGH_DATA
+  ) {
+
+    canvas.width =
+      video.videoWidth;
+
+    canvas.height =
+      video.videoHeight;
+
+
+    ctx.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+
+    const imageData =
+      ctx.getImageData(
         0,
         0,
         canvas.width,
@@ -235,125 +277,140 @@
       );
 
 
-      const imageData =
-        ctx.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+    const code =
+      jsQR(
+        imageData.data,
+        imageData.width,
+        imageData.height
+      );
 
 
-      const code =
-        jsQR(
-          imageData.data,
-          imageData.width,
-          imageData.height
-        );
+    if (code) {
+
+      scanning = false;
 
 
-      if (code) {
-
-        /*
-         * QR gevonden
-         */
-        scanning = false;
+      controleerTicket(
+        code.data,
+        pin
+      );
 
 
-        controleerTicket(
-          code.data,
-          pin
-        );
-
-
-        return;
-      }
+      return;
 
     }
-
-
-    requestAnimationFrame(function() {
-
-      scanQR(pin);
-
-    });
 
   }
 
 
+  requestAnimationFrame(
+    function() {
+      scanQR(pin);
+    }
+  );
+
+}
+
+
+/************************************************
+ * TICKET CONTROLEREN
+ ************************************************/
+
+function controleerTicket(
+  token,
+  pin
+) {
+
+  result.style.background = "";
+
+  result.innerHTML =
+    "⏳ Ticket controleren...";
+
+
   /*
-   * TICKET CONTROLEREN
+   * Unieke callbacknaam
    */
-  function controleerTicket(
-    token,
-    pin
-  ) {
 
-    const result =
-      document.getElementById("result");
+  const callbackNaam =
+    "ticketCallback_" +
+    Date.now();
 
 
-    result.style.background = "";
+  /*
+   * Antwoord van Apps Script
+   */
 
-    result.innerHTML =
-      "⏳ Ticket controleren...";
-
-
-    /*
-     * Unieke callbacknaam voor JSONP
-     */
-    const callbackNaam =
-      "ticketCallback_" +
-      Date.now();
+  window[callbackNaam] =
+    function(antwoord) {
 
 
-    /*
-     * Antwoord van Google Apps Script
-     */
-    window[callbackNaam] =
-      function(antwoord) {
+      /*
+       * GELDIG
+       */
+
+      if (antwoord.success === true) {
+
+        result.style.background =
+          "#c8f7d0";
 
 
-        if (antwoord.geldig) {
+        result.innerHTML =
+
+          "✅ GELDIG TICKET" +
+          "<br><br>" +
+
+          "<b>" +
+          escapeHtml(
+            antwoord.naam || ""
+          ) +
+          "</b>" +
+
+          "<br><br>" +
+
+          "Aantal tickets: " +
+
+          escapeHtml(
+            String(
+              antwoord.aantal || ""
+            )
+          );
+
+      }
+
+
+      /*
+       * ONGELDIG
+       */
+
+      else {
+
+        result.style.background =
+          "#ffcaca";
+
+
+        result.innerHTML =
+
+          "❌ ONGELDIG TICKET" +
+          "<br><br>" +
+
+          escapeHtml(
+            antwoord.message ||
+            antwoord.melding ||
+            "Ticket ongeldig."
+          );
+
+      }
+
+
+      /*
+       * Na 3 seconden opnieuw klaar
+       */
+
+      setTimeout(
+        function() {
 
           result.style.background =
-            "#c8f7d0";
-
-
-          result.innerHTML =
-            "✅ GELDIG TICKET<br><br>" +
-
-            "<b>" +
-            antwoord.naam +
-            "</b><br><br>" +
-
-            "Aantal tickets: " +
-            antwoord.aantal;
-
-
-        } else {
-
-          result.style.background =
-            "#ffcaca";
-
-
-          result.innerHTML =
-            "❌ ONGELDIG TICKET<br><br>" +
-
-            antwoord.melding;
-
-        }
-
-
-        /*
-         * Na 3 seconden weer klaar
-         * voor het volgende ticket.
-         */
-        setTimeout(function() {
-
-
-          result.style.background = "";
-
+            "";
 
           result.innerHTML =
             "🟢 Klaar voor volgende ticket.";
@@ -364,43 +421,129 @@
 
           scanQR(pin);
 
+        },
+        3000
+      );
 
-        }, 3000);
-
-      };
-
-
-    /*
-     * Verzoek naar Google Apps Script
-     */
-    const script =
-      document.createElement("script");
+    };
 
 
-    script.src =
-      APPS_SCRIPT_URL +
+  /*
+   * Als er een fout optreedt
+   */
 
-      "?actie=scan" +
+  window.onerror =
+    function() {
 
-      "&token=" +
-      encodeURIComponent(token) +
+      result.style.background =
+        "#ffcaca";
 
-      "&pin=" +
-      encodeURIComponent(pin) +
+      result.innerHTML =
+        "❌ Er ging iets mis bij het controleren.";
 
-      "&callback=" +
-      encodeURIComponent(callbackNaam);
+    };
 
 
-    /*
-     * Script toevoegen aan pagina
-     */
-    document.body.appendChild(script);
+  /*
+   * JSONP-script maken
+   */
 
-  }
+  const script =
+    document.createElement(
+      "script"
+    );
 
+
+  script.src =
+
+    APPS_SCRIPT_URL +
+
+    "?actie=scan" +
+
+    "&token=" +
+
+    encodeURIComponent(token) +
+
+    "&pin=" +
+
+    encodeURIComponent(pin) +
+
+    "&callback=" +
+
+    encodeURIComponent(
+      callbackNaam
+    );
+
+
+  /*
+   * Script toevoegen
+   */
+
+  document.body.appendChild(
+    script
+  );
+
+
+  /*
+   * Opruimen na antwoord
+   */
+
+  setTimeout(
+    function() {
+
+      try {
+
+        delete window[
+          callbackNaam
+        ];
+
+      } catch (e) {}
+
+    },
+    10000
+  );
+
+}
+
+
+/************************************************
+ * HTML VEILIG WEERGEVEN
+ ************************************************/
+
+function escapeHtml(text) {
+
+  return String(text || "")
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
 
 </script>
 
 </body>
+
 </html>
+```

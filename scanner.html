@@ -1,1939 +1,446 @@
-const CONFIG = {
-  EVENT_NAAM: "14 nov fissa",
-  TICKET_PRIJS: 16,
-  ORGANISATOR: "tim",
-  ORGANISATOR_PIN: "1312",
-
-  WEBAPP_URL:
-    "https://script.google.com/macros/s/AKfycbxJZJgxn0BpdSv8b2K9MAuNaPvgsBlCO5tdnlivnWTFdNqnB8w6frFH0dofm4Oyx9YF/exec",
-
-TIKKIE_URLS: [
-  "https://" + "tikkie.me/pay/" + "clcsi3gb87tmkvo7eunr",
-  "https://" + "tikkie.me/pay/" + "hc30q3lqshmgdmmpcncv",
-  "https://" + "tikkie.me/pay/" + "kbpt0m41ugit5818smpq",
-  "https://" + "tikkie.me/pay/" + "cig1ce4rebc2etdg91ku"
-]
-};
-
-
-/* =========================================================
-   SHEET
-========================================================= */
-
-function zorgVoorTicketsSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  let sheet = ss.getSheetByName("Tickets");
-
-  if (!sheet) {
-    sheet = ss.insertSheet("Tickets");
-  }
-
-  return sheet;
-}
-
-
-function setup() {
-  const sheet = zorgVoorTicketsSheet();
-
-  const headers = [
-    "TicketID",
-    "Naam",
-    "Email",
-    "Aantal",
-    "Bedrag",
-    "Betaald",
-    "Status",
-    "Token",
-    "TicketURL",
-    "Verstuurd",
-    "GebruiktOp",
-    "TikkieNr"
-  ];
-
-  sheet
-    .getRange(1, 1, 1, headers.length)
-    .setValues([headers]);
-
-  sheet
-    .getRange(1, 1, 1, headers.length)
-    .setFontWeight("bold");
-
-  sheet.setFrozenRows(1);
-}
-
-
-/* =========================================================
-   MENU
-========================================================= */
-
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu("Tickets")
-    .addItem("Setup uitvoeren", "setup")
-    .addItem("Scanner openen", "openScanner")
-    .addItem("Tikkie overzicht", "tikkieOverzicht")
-    .addToUi();
-}
-
-
-function openScanner() {
-  const url =
-    CONFIG.WEBAPP_URL + "?page=scanner";
-
-  SpreadsheetApp.getUi().alert(
-    "Scanner",
-    url,
-    SpreadsheetApp.getUi().ButtonSet.OK
-  );
-}
-
-
-/* =========================================================
-   TIKKIE VERDELING
-========================================================= */
-
-function telTikkieBestellingen(tikkieNr) {
-  const sheet = zorgVoorTicketsSheet();
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow < 2) {
-    return 0;
-  }
-
-  const data = sheet
-    .getRange(2, 1, lastRow - 1, 12)
-    .getValues();
-
-  let aantal = 0;
-
-  for (let i = 0; i < data.length; i++) {
-    const rij = data[i];
-
-    const ticketID = String(rij[0]).trim();
-    const rijTikkieNr = Number(rij[11]);
-
-    if (
-      ticketID !== "" &&
-      rijTikkieNr === Number(tikkieNr)
-    ) {
-      aantal++;
-    }
-  }
-
-  return aantal;
-}
-
-
-function kiesTikkie() {
-  let besteNr = 1;
-  let laagsteAantal = Infinity;
-
-  for (
-    let i = 1;
-    i <= CONFIG.TIKKIE_URLS.length;
-    i++
-  ) {
-    const aantal = telTikkieBestellingen(i);
-
-    if (aantal < laagsteAantal) {
-      laagsteAantal = aantal;
-      besteNr = i;
-    }
-  }
-
-  return besteNr;
-}
-
-
-/* =========================================================
-   E-MAIL CONTROLE
-========================================================= */
-
-function emailHeeftAlTicket(email) {
-  const sheet = zorgVoorTicketsSheet();
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow < 2) {
-    return false;
-  }
-
-  const data = sheet
-    .getRange(2, 1, lastRow - 1, 12)
-    .getValues();
-
-  const gezocht = String(email)
-    .trim()
-    .toLowerCase();
-
-  for (let i = 0; i < data.length; i++) {
-    const bestaandEmail = String(data[i][2])
-      .trim()
-      .toLowerCase();
-
-    if (
-      bestaandEmail !== "" &&
-      bestaandEmail === gezocht
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-
-/* =========================================================
-   TICKET AANMAKEN
-========================================================= */
-
-function nieuweTicket(
-  voornaam,
-  achternaam,
-  email
-) {
-  const sheet = zorgVoorTicketsSheet();
-
-  const ticketID =
-    "T" +
-    new Date().getTime() +
-    Math.floor(Math.random() * 1000);
-
-  const token = Utilities.getUuid();
-
-  const tikkieNr = kiesTikkie();
-
-  const ticketURL =
-    CONFIG.WEBAPP_URL +
-    "?page=ticket&id=" +
-    encodeURIComponent(ticketID) +
-    "&token=" +
-    encodeURIComponent(token);
-
-  const volledigeNaam =
-    String(voornaam).trim() +
-    " " +
-    String(achternaam).trim();
-
-  sheet.appendRow([
-    ticketID,
-    volledigeNaam,
-    email,
-    1,
-    CONFIG.TICKET_PRIJS,
-    "NEE",
-    "nieuw",
-    token,
-    ticketURL,
-    "NEE",
-    "",
-    tikkieNr
-  ]);
-
-  return {
-    ticketID: ticketID,
-    naam: volledigeNaam,
-    email: email,
-    ticketURL: ticketURL,
-    tikkieNr: tikkieNr,
-    tikkieURL: CONFIG.TIKKIE_URLS[tikkieNr - 1]
-  };
-}
-
-
-function maakTicket(
-  voornaam,
-  achternaam,
-  email
-) {
-  return nieuweTicket(
-    voornaam,
-    achternaam,
-    email
-  );
-}
-
-
-/* =========================================================
-   BESTELLING
-========================================================= */
-
-function plaatsBestelling(
-  voornaam,
-  achternaam,
-  email
-) {
-  voornaam = String(voornaam || "").trim();
-  achternaam = String(achternaam || "").trim();
-  email = String(email || "").trim();
-
-  if (!voornaam) {
-    throw new Error(
-      "Vul je voornaam in."
-    );
-  }
-
-  if (!achternaam) {
-    throw new Error(
-      "Vul je achternaam in."
-    );
-  }
-
-  if (!email) {
-    throw new Error(
-      "Vul je e-mailadres in."
-    );
-  }
-
-  if (!email.includes("@")) {
-    throw new Error(
-      "Vul een geldig e-mailadres in."
-    );
-  }
-
-  if (emailHeeftAlTicket(email)) {
-    throw new Error(
-      "Met dit e-mailadres is al een ticket besteld."
-    );
-  }
-
-  return nieuweTicket(
-    voornaam,
-    achternaam,
-    email
-  );
-}
-
-
-/* =========================================================
-   TICKET PER E-MAIL VERSTUREN
-========================================================= */
-
-function ticketVersturen(ticketID) {
-  const sheet = zorgVoorTicketsSheet();
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow < 2) {
-    return false;
-  }
-
-  const data = sheet
-    .getRange(2, 1, lastRow - 1, 12)
-    .getValues();
-
-  for (let i = 0; i < data.length; i++) {
-    const rij = data[i];
-
-    if (
-      String(rij[0]).trim() ===
-      String(ticketID).trim()
-    ) {
-      const rowNumber = i + 2;
-
-      const naam = rij[1];
-      const email = rij[2];
-      const ticketURL = rij[8];
-
-      const verstuurd =
-        String(rij[9])
-          .trim()
-          .toUpperCase();
-
-      if (!email || !ticketURL) {
-        return false;
-      }
-
-      // Voorkomt dat hetzelfde ticket meerdere keren wordt gemaild.
-      if (verstuurd === "JA") {
-        return true;
-      }
-
-      const onderwerp =
-        "Jouw ticket - " +
-        CONFIG.EVENT_NAAM;
-
-      const bericht =
-        "Hoi " +
-        naam +
-        ",\n\n" +
-
-        "Je betaling is bevestigd.\n\n" +
-
-        "Hier is jouw ticket voor " +
-        CONFIG.EVENT_NAAM +
-        ":\n\n" +
-
-        ticketURL +
-        "\n\n" +
-
-        "Open deze link op je telefoon.\n" +
-        "Daar staat jouw persoonlijke QR-code.\n\n" +
-
-        "Laat de QR-code bij de ingang scannen.\n\n" +
-
-        "Je ticket kan maar één keer gebruikt worden.\n\n" +
-
-        "Tot dan!\n\n" +
-
-        CONFIG.ORGANISATOR;
-
-      MailApp.sendEmail({
-        to: email,
-        subject: onderwerp,
-        body: bericht
-      });
-
-      // Kolom J = Verstuurd
-      sheet
-        .getRange(rowNumber, 10)
-        .setValue("JA");
-
-      return true;
-    }
-  }
-
-  return false;
-}
-
-
-
-/* =========================================================
-   AUTOMATISCHE MAIL CONTROLE
-   Controleert alle betaalde tickets en verstuurt
-   tickets waarvan Verstuurd nog niet op JA staat.
-========================================================= */
-
-function verwerkBetaaldeTickets() {
-  const sheet = zorgVoorTicketsSheet();
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow < 2) {
-    return;
-  }
-
-  const data = sheet
-    .getRange(2, 1, lastRow - 1, 12)
-    .getValues();
-
-  for (let i = 0; i < data.length; i++) {
-    const rij = data[i];
-
-    const ticketID = String(rij[0] || "").trim();
-    const betaald = String(rij[5] || "").trim().toUpperCase();
-    const verstuurd = String(rij[9] || "").trim().toUpperCase();
-
-    if (
-      ticketID &&
-      betaald === "JA" &&
-      verstuurd !== "JA"
-    ) {
-      try {
-        ticketVersturen(ticketID);
-      } catch (error) {
-        console.error(
-          "Mail kon niet worden verstuurd voor " +
-          ticketID +
-          ": " +
-          error
-        );
-      }
-    }
-  }
-}
-
-
-/* =========================================================
-   AUTOMATISCHE CONTROLE-TRIGGER INSTELLEN
-   Deze functie één keer handmatig uitvoeren.
-========================================================= */
-
-function installeerMailControle() {
-  const triggers = ScriptApp.getProjectTriggers();
-
-  for (let i = 0; i < triggers.length; i++) {
-    if (
-      triggers[i].getHandlerFunction() ===
-      "verwerkBetaaldeTickets"
-    ) {
-      ScriptApp.deleteTrigger(triggers[i]);
-    }
-  }
-
-  ScriptApp
-    .newTrigger("verwerkBetaaldeTickets")
-    .timeBased()
-    .everyMinutes(5)
-    .create();
-}
-
-
-/* =========================================================
-   AUTOMATISCH TICKET VERSTUREN
-   ALS BETAALD = JA
-========================================================= */
-
-function betaalTrigger(e) {
-  if (!e || !e.range) {
-    return;
-  }
-
-  const sheet = e.range.getSheet();
-
-  if (sheet.getName() !== "Tickets") {
-    return;
-  }
-
-  const firstRow = e.range.getRow();
-  const numberOfRows = e.range.getNumRows();
-
-  for (
-    let rowNumber = firstRow;
-    rowNumber < firstRow + numberOfRows;
-    rowNumber++
-  ) {
-    if (rowNumber < 2) {
-      continue;
-    }
-
-    const betaald =
-      String(
-        sheet.getRange(rowNumber, 6).getValue() || ""
-      )
-        .trim()
-        .toUpperCase();
-
-    const verstuurd =
-      String(
-        sheet.getRange(rowNumber, 10).getValue() || ""
-      )
-        .trim()
-        .toUpperCase();
-
-    const ticketID =
-      sheet.getRange(rowNumber, 1).getValue();
-
-    if (
-      ticketID &&
-      betaald === "JA" &&
-      verstuurd !== "JA"
-    ) {
-      try {
-        ticketVersturen(ticketID);
-      } catch (error) {
-        console.error(
-          "Mail kon niet worden verstuurd voor " +
-          ticketID +
-          ": " +
-          error
-        );
-      }
-    }
-  }
-}
-
-
-/* =========================================================
-   HTML VEILIG MAKEN
-========================================================= */
-
-function escapeHtml(text) {
-  return String(text || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-
-/* =========================================================
-   WEBAPP
-========================================================= */
-
-function doGet(e) {
-  const page =
-    e &&
-    e.parameter &&
-    e.parameter.page
-      ? e.parameter.page
-      : "bestellen";
-
-  if (page === "bestellen") {
-    return bestelPagina();
-  }
-
-  if (page === "ticket") {
-    return ticketPagina(e);
-  }
-
-  if (page === "scanapi") {
-    return scannerApi(e);
-  }
-
-  if (page === "controle") {
-    return controleerTicketPagina(e);
-  }
-
-  if (page === "scanner") {
-    return scannerPagina();
-  }
-
-  if (page === "statistieken") {
-    return statistieken();
-  }
-
-  if (page === "tikkie") {
-    return tikkieOverzicht();
-  }
-
-  return bestelPagina();
-}
-
-
-/* =========================================================
-   BESTELPAGINA
-========================================================= */
-
-function bestelPagina() {
-  const html = `
 <!DOCTYPE html>
-<html>
-
+<html lang="nl">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+  <title>Feest-scanner</title>
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/html5-qrcode"></script>
 
-<title>${escapeHtml(CONFIG.EVENT_NAAM)}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 18px;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
 
-<style>
+    .container {
+      max-width: 560px;
+      margin: auto;
+    }
 
-body {
-  font-family: Arial, sans-serif;
-  background: #f5f5f5;
-  padding: 20px;
-  margin: 0;
-}
+    h1 {
+      margin: 8px 0 12px;
+    }
 
-.container {
-  max-width: 500px;
-  margin: auto;
-  background: white;
-  padding: 25px;
-  border-radius: 15px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
+    #reader {
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+    }
 
-h1 {
-  text-align: center;
-}
+    #status {
+      margin: 18px 0;
+      padding: 22px 14px;
+      border-radius: 16px;
+      background: #222;
+      min-height: 70px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
 
-label {
-  display: block;
-  margin-top: 15px;
-  font-weight: bold;
-}
+    #statusTitel {
+      font-size: 30px;
+      font-weight: bold;
+    }
 
-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 14px;
-  margin-top: 6px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 16px;
-}
+    #statusNaam {
+      margin-top: 8px;
+      font-size: 23px;
+    }
 
-button {
-  width: 100%;
-  padding: 15px;
-  margin-top: 20px;
-  border: none;
-  border-radius: 8px;
-  background: #111;
-  color: white;
-  font-size: 17px;
-  cursor: pointer;
-}
+    .goed {
+      background: #0b7a2a !important;
+    }
 
-button:disabled {
-  background: #999;
-}
+    .fout {
+      background: #b3261e !important;
+    }
 
-.price {
-  text-align: center;
-  font-size: 22px;
-  font-weight: bold;
-  margin: 20px 0;
-}
+    .waarschuwing {
+      background: #9a6700 !important;
+    }
 
-.notice {
-  background: #fff3cd;
-  border: 1px solid #ffe69c;
-  padding: 15px;
-  border-radius: 10px;
-  margin: 20px 0;
-  line-height: 1.5;
-}
+    button, input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 18px;
+    }
 
-#resultaat {
-  margin-top: 20px;
-  text-align: center;
-}
+    input {
+      border: 1px solid #aaa;
+      margin-bottom: 10px;
+    }
 
-.error {
-  color: #c00;
-}
+    button {
+      border: 0;
+      cursor: pointer;
+      font-weight: bold;
+    }
 
-.success {
-  color: #080;
-}
+    #pinBox {
+      background: #222;
+      padding: 18px;
+      border-radius: 14px;
+      margin-bottom: 18px;
+    }
 
-.tikkie-button {
-  display: block;
-  text-align: center;
-  background: #111;
-  color: white;
-  padding: 15px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-size: 17px;
-  margin-top: 15px;
-}
+    #scannerBox {
+      display: none;
+    }
 
-</style>
-
+    .klein {
+      font-size: 14px;
+      opacity: .8;
+      margin-top: 8px;
+    }
+  </style>
 </head>
 
 <body>
-
 <div class="container">
+  <h1>🎟️ Feest-scanner</h1>
 
-<h1>
-${escapeHtml(CONFIG.EVENT_NAAM)}
-</h1>
+  <div id="pinBox">
+    <p>Voer één keer de organisator-PIN in.</p>
 
-<div class="price">
-€${CONFIG.TICKET_PRIJS},00 per ticket
+    <input
+      id="pin"
+      type="password"
+      inputmode="numeric"
+      autocomplete="off"
+      placeholder="PIN">
+
+    <button onclick="scannerStarten()">
+      Scanner starten
+    </button>
+  </div>
+
+  <div id="scannerBox">
+    <div id="reader"></div>
+
+    <div id="status">
+      <div id="statusTitel">Klaar om te scannen</div>
+      <div id="statusNaam"></div>
+    </div>
+
+    <div class="klein">
+      Na iedere scan gaat de camera automatisch verder.
+    </div>
+  </div>
 </div>
-
-<div class="notice">
-
-<strong>Let op bij het betalen!</strong>
-
-<br><br>
-
-Bij het betalen via Tikkie moet je bij
-<strong>reactie/omschrijving</strong>
-je volledige voor- en achternaam invullen.
-
-<br><br>
-
-Bijvoorbeeld:
-
-<br>
-
-<strong>Tim Jansen</strong>
-
-<br><br>
-
-Controleer dit goed voordat je de betaling verstuurt.
-
-</div>
-
-<form id="formulier">
-
-<label for="voornaam">
-Voornaam
-</label>
-
-<input
-type="text"
-id="voornaam"
-required
-autocomplete="given-name"
->
-
-<label for="achternaam">
-Achternaam
-</label>
-
-<input
-type="text"
-id="achternaam"
-required
-autocomplete="family-name"
->
-
-<label for="email">
-E-mailadres
-</label>
-
-<input
-type="email"
-id="email"
-required
-autocomplete="email"
->
-
-<button
-type="submit"
-id="knop"
->
-Ticket bestellen
-</button>
-
-</form>
-
-<div id="resultaat"></div>
-
-</div>
-
 
 <script>
+const WEBAPP_URL =
+  "https://script.google.com/macros/s/AKfycbxJZJgxn0BpdSv8b2K9MAuNaPvgsBlCO5tdnlivnWTFdNqnB8w6frFH0dofm4Oyx9YF/exec";
 
-document
-.getElementById("formulier")
-.addEventListener(
-"submit",
-function(e) {
-
-  e.preventDefault();
-
-  const knop =
-    document.getElementById("knop");
-
-  const resultaat =
-    document.getElementById("resultaat");
-
-  const voornaam =
-    document
-      .getElementById("voornaam")
-      .value
-      .trim();
-
-  const achternaam =
-    document
-      .getElementById("achternaam")
-      .value
-      .trim();
-
-  const email =
-    document
-      .getElementById("email")
-      .value
-      .trim();
-
-  if (!voornaam) {
-    resultaat.innerHTML =
-      '<p class="error">' +
-      'Vul je voornaam in.' +
-      '</p>';
-
-    return;
-  }
-
-  if (!achternaam) {
-    resultaat.innerHTML =
-      '<p class="error">' +
-      'Vul je achternaam in.' +
-      '</p>';
-
-    return;
-  }
-
-  if (!email) {
-    resultaat.innerHTML =
-      '<p class="error">' +
-      'Vul je e-mailadres in.' +
-      '</p>';
-
-    return;
-  }
-
-  knop.disabled = true;
-  knop.innerText =
-    "Bestelling wordt gemaakt...";
-
-  google.script.run
-
-    .withSuccessHandler(
-      function(ticket) {
-
-        resultaat.innerHTML =
-
-          '<p class="success">' +
-
-          '<strong>Bestelling aangemaakt!</strong>' +
-
-          '<br><br>' +
-
-          'Je betaalt €' +
-          ${CONFIG.TICKET_PRIJS} +
-          ' via Tikkie.' +
-
-          '<br><br>' +
-
-          '<strong>Belangrijk:</strong><br>' +
-
-          'Vul bij de reactie/omschrijving ' +
-          'van Tikkie je volledige naam in:' +
-
-          '<br><br>' +
-
-          '<strong>' +
-          voornaam +
-          ' ' +
-          achternaam +
-          '</strong>' +
-
-          '</p>' +
-
-          '<a class="tikkie-button" ' +
-          'href="' +
-          ticket.tikkieURL +
-          '" ' +
-          'target="_blank">' +
-
-          'Betalen met Tikkie →' +
-
-          '</a>';
-
-        knop.style.display =
-          "none";
-
-      }
-    )
-
-    .withFailureHandler(
-      function(error) {
-
-        resultaat.innerHTML =
-          '<p class="error">' +
-          (error.message || error) +
-          '</p>';
-
-        knop.disabled = false;
-
-        knop.innerText =
-          "Ticket bestellen";
-      }
-    )
-
-    .plaatsBestelling(
-      voornaam,
-      achternaam,
-      email
-    );
-
-});
-
-</script>
-
-</body>
-
-</html>
-`;
-
-  return HtmlService
-    .createHtmlOutput(html)
-    .setTitle(CONFIG.EVENT_NAAM);
-}
-
-
-/* =========================================================
-   TICKETPAGINA
-========================================================= */
-
-function ticketPagina(e) {
-
-  const id =
-    e &&
-    e.parameter &&
-    e.parameter.id
-      ? e.parameter.id
-      : "";
-
-  const token =
-    e &&
-    e.parameter &&
-    e.parameter.token
-      ? e.parameter.token
-      : "";
-
-  if (!id || !token) {
-    return HtmlService
-      .createHtmlOutput(
-        "<h2>Ongeldig ticket</h2>"
-      );
-  }
-
-  const sheet =
-    zorgVoorTicketsSheet();
-
-  const lastRow =
-    sheet.getLastRow();
-
-  if (lastRow < 2) {
-    return HtmlService
-      .createHtmlOutput(
-        "<h2>Ongeldig ticket</h2>"
-      );
-  }
-
-  const data =
-    sheet
-      .getRange(
-        2,
-        1,
-        lastRow - 1,
-        12
-      )
-      .getValues();
-
-  for (
-    let i = 0;
-    i < data.length;
-    i++
-  ) {
-
-    const rij = data[i];
-
-    const ticketID =
-      String(rij[0]).trim();
-
-    const rijToken =
-      String(rij[7]).trim();
-
-    if (
-      ticketID ===
-        String(id).trim() &&
-      rijToken ===
-        String(token).trim()
-    ) {
-
-      const naam = rij[1];
-
-      const betaald =
-        String(rij[5])
-          .trim()
-          .toUpperCase();
-
-      const status =
-        String(rij[6])
-          .trim()
-          .toLowerCase();
-
-      if (betaald !== "JA") {
-
-        return HtmlService
-          .createHtmlOutput(`
-<!DOCTYPE html>
-<html>
-
-<head>
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-
-<style>
-
-body {
-  font-family: Arial;
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.box {
-  max-width: 450px;
-  margin: auto;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="box">
-
-<h2>Betaling nog niet bevestigd</h2>
-
-<p>
-Je ticket wordt zichtbaar zodra
-de betaling is gecontroleerd en bevestigd.
-</p>
-
-</div>
-
-</body>
-
-</html>
-          `);
-      }
-
-      if (status === "gebruikt") {
-
-        return HtmlService
-          .createHtmlOutput(`
-<!DOCTYPE html>
-<html>
-
-<head>
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-
-<style>
-
-body {
-  font-family: Arial;
-  text-align: center;
-  padding: 40px 20px;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<h2>Ticket al gebruikt</h2>
-
-<p>
-Dit ticket is al gescand.
-</p>
-
-</body>
-
-</html>
-          `);
-      }
-
-      const qrData =
-        CONFIG.WEBAPP_URL +
-        "?page=controle&id=" +
-        encodeURIComponent(ticketID) +
-        "&token=" +
-        encodeURIComponent(rijToken);
-
-      const qrUrl =
-        "https://api.qrserver.com/v1/create-qr-code/" +
-        "?size=300x300&data=" +
-        encodeURIComponent(qrData);
-
-      return HtmlService
-        .createHtmlOutput(`
-<!DOCTYPE html>
-<html>
-
-<head>
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-
-<style>
-
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  padding: 25px;
-  background: #f5f5f5;
-}
-
-.card {
-  max-width: 450px;
-  margin: auto;
-  background: white;
-  padding: 25px;
-  border-radius: 15px;
-}
-
-img {
-  width: 280px;
-  height: 280px;
-  margin-top: 20px;
-}
-
-.name {
-  font-size: 22px;
-  font-weight: bold;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="card">
-
-<h1>
-${escapeHtml(CONFIG.EVENT_NAAM)}
-</h1>
-
-<p class="name">
-${escapeHtml(naam)}
-</p>
-
-<p>
-Ticket voor toegang
-</p>
-
-<img
-src="${qrUrl}"
-alt="QR-code"
->
-
-<p>
-Laat deze QR-code bij de ingang scannen.
-</p>
-
-</div>
-
-</body>
-
-</html>
-        `);
-    }
-  }
-
-  return HtmlService
-    .createHtmlOutput(
-      "<h2>Ongeldig ticket</h2>"
-    );
-}
-
-
-/* =========================================================
-   TICKET CONTROLEREN
-========================================================= */
-
-function zoekTicketZonderGebruiken(id, token) {
-  const sheet = zorgVoorTicketsSheet();
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow < 2) {
-    return {
-      geldig: false,
-      bericht: "Ongeldig ticket."
-    };
-  }
-
-  const data = sheet
-    .getRange(2, 1, lastRow - 1, 12)
-    .getValues();
-
-  for (let i = 0; i < data.length; i++) {
-    const rij = data[i];
-
-    const ticketID = String(rij[0] || "").trim();
-    const rijToken = String(rij[7] || "").trim();
-
-    if (
-      ticketID === String(id || "").trim() &&
-      rijToken === String(token || "").trim()
-    ) {
-      const betaald = String(rij[5] || "")
-        .trim()
-        .toUpperCase();
-
-      const status = String(rij[6] || "")
-        .trim()
-        .toLowerCase();
-
-      if (betaald !== "JA") {
-        return {
-          geldig: false,
-          bericht: "Ticket is nog niet betaald.",
-          naam: rij[1] || ""
-        };
-      }
-
-      if (status === "gebruikt") {
-        return {
-          geldig: false,
-          gebruikt: true,
-          bericht: "Ticket al gebruikt.",
-          naam: rij[1] || ""
-        };
-      }
-
-      return {
-        geldig: true,
-        gebruikt: false,
-        bericht: "Ticket is geldig.",
-        naam: rij[1] || ""
-      };
-    }
-  }
-
-  return {
-    geldig: false,
-    bericht: "Ongeldig ticket."
-  };
-}
-
-
-function controleerTicket(id, token) {
-  const lock = LockService.getScriptLock();
-
-  try {
-    lock.waitLock(10000);
-
-    const sheet = zorgVoorTicketsSheet();
-    const lastRow = sheet.getLastRow();
-
-    if (lastRow < 2) {
-      return {
-        geldig: false,
-        bericht: "Ongeldig ticket."
-      };
-    }
-
-    const data = sheet
-      .getRange(2, 1, lastRow - 1, 12)
-      .getValues();
-
-    for (let i = 0; i < data.length; i++) {
-      const rij = data[i];
-
-      const ticketID = String(rij[0] || "").trim();
-      const rijToken = String(rij[7] || "").trim();
-
-      if (
-        ticketID === String(id || "").trim() &&
-        rijToken === String(token || "").trim()
-      ) {
-        const betaald = String(rij[5] || "")
-          .trim()
-          .toUpperCase();
-
-        if (betaald !== "JA") {
-          return {
-            geldig: false,
-            bericht: "Ticket is nog niet betaald.",
-            naam: rij[1] || ""
-          };
-        }
-
-        const status = String(rij[6] || "")
-          .trim()
-          .toLowerCase();
-
-        if (status === "gebruikt") {
-          return {
-            geldig: false,
-            gebruikt: true,
-            bericht: "Ticket al gebruikt.",
-            naam: rij[1] || ""
-          };
-        }
-
-        const rowNumber = i + 2;
-
-        sheet
-          .getRange(rowNumber, 7)
-          .setValue("gebruikt");
-
-        sheet
-          .getRange(rowNumber, 11)
-          .setValue(new Date());
-
-        SpreadsheetApp.flush();
-
-        return {
-          geldig: true,
-          gebruikt: false,
-          bericht: "Ticket geldig!",
-          naam: rij[1] || ""
-        };
-      }
-    }
-
-    return {
-      geldig: false,
-      bericht: "Ongeldig ticket."
-    };
-  } finally {
-    try {
-      lock.releaseLock();
-    } catch (error) {
-      // Niets doen als er geen lock meer is.
-    }
-  }
-}
-
-
-/* =========================================================
-   SCANNER API
-   Alleen de scanner met de organisator-PIN mag een ticket
-   daadwerkelijk op "gebruikt" zetten.
-========================================================= */
-
-function scannerApi(e) {
-  const callback =
-    e && e.parameter && e.parameter.callback
-      ? String(e.parameter.callback)
-      : "";
-
-  const veiligeCallback =
-    /^[A-Za-z_$][0-9A-Za-z_$\.]*$/.test(callback)
-      ? callback
-      : "";
-
-  const pin =
-    e && e.parameter && e.parameter.pin
-      ? String(e.parameter.pin)
-      : "";
-
-  let resultaat;
-
-  if (pin !== String(CONFIG.ORGANISATOR_PIN)) {
-    resultaat = {
-      geldig: false,
-      fout: "pin",
-      bericht: "Onjuiste scanner-PIN."
-    };
-  } else {
-    const id =
-      e && e.parameter && e.parameter.id
-        ? e.parameter.id
-        : "";
-
-    const token =
-      e && e.parameter && e.parameter.token
-        ? e.parameter.token
-        : "";
-
-    resultaat = controleerTicket(id, token);
-  }
-
-  const json = JSON.stringify(resultaat);
-
-  if (veiligeCallback) {
-    return ContentService
-      .createTextOutput(
-        veiligeCallback + "(" + json + ");"
-      )
-      .setMimeType(
-        ContentService.MimeType.JAVASCRIPT
-      );
-  }
-
-  return ContentService
-    .createTextOutput(json)
-    .setMimeType(
-      ContentService.MimeType.JSON
-    );
-}
-
-
-/* =========================================================
-   CONTROLEPAGINA
-   BELANGRIJK: deze pagina gebruikt het ticket NIET.
-   Daardoor kan iemand zijn eigen QR-link veilig openen.
-========================================================= */
-
-function controleerTicketPagina(e) {
-  const id =
-    e && e.parameter && e.parameter.id
-      ? e.parameter.id
-      : "";
-
-  const token =
-    e && e.parameter && e.parameter.token
-      ? e.parameter.token
-      : "";
-
-  const resultaat =
-    zoekTicketZonderGebruiken(id, token);
-
-  let titel = resultaat.bericht;
-  let extra = "";
-
-  if (resultaat.geldig) {
-    titel = "Ticket gevonden";
-    extra =
-      "<p>Laat deze QR-code bij de ingang door de officiële scanner scannen.</p>" +
-      "<p><strong>Dit openen gebruikt je ticket niet.</strong></p>";
-  } else if (resultaat.gebruikt) {
-    extra =
-      "<p>Dit ticket staat al als gebruikt geregistreerd.</p>";
-  }
-
-  return HtmlService
-    .createHtmlOutput(`
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-<style>
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  padding: 40px 20px;
-  background: #f5f5f5;
-}
-.card {
-  max-width: 480px;
-  margin: auto;
-  background: white;
-  padding: 30px;
-  border-radius: 16px;
-}
-h1 {
-  font-size: 32px;
-}
-.naam {
-  font-size: 24px;
-  font-weight: bold;
-}
-</style>
-</head>
-<body>
-<div class="card">
-<h1>${escapeHtml(titel)}</h1>
-${resultaat.naam
-  ? '<div class="naam">' + escapeHtml(resultaat.naam) + '</div>'
-  : ''}
-${extra}
-</div>
-</body>
-</html>
-    `);
-}
-
-/* =========================================================
-   STATISTIEKEN
-========================================================= */
-
-function statistieken() {
-
-  const sheet =
-    zorgVoorTicketsSheet();
-
-  const lastRow =
-    sheet.getLastRow();
-
-  let totaal = 0;
-  let betaald = 0;
-  let gebruikt = 0;
-
-  if (lastRow >= 2) {
-
-    const data =
-      sheet
-        .getRange(
-          2,
-          1,
-          lastRow - 1,
-          12
-        )
-        .getValues();
-
-    for (
-      let i = 0;
-      i < data.length;
-      i++
-    ) {
-
-      if (!data[i][0]) {
-        continue;
-      }
-
-      totaal++;
-
-      if (
-        String(data[i][5])
-          .trim()
-          .toUpperCase() === "JA"
-      ) {
-        betaald++;
-      }
-
-      if (
-        String(data[i][6])
-          .trim()
-          .toLowerCase() === "gebruikt"
-      ) {
-        gebruikt++;
-      }
-    }
-  }
-
-  return HtmlService
-    .createHtmlOutput(`
-<!DOCTYPE html>
-<html>
-
-<head>
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-
-</head>
-
-<body>
-
-<h1>
-${escapeHtml(CONFIG.EVENT_NAAM)}
-</h1>
-
-<p>
-Bestelde tickets: ${totaal}
-</p>
-
-<p>
-Betaalde tickets: ${betaald}
-</p>
-
-<p>
-Gebruikte tickets: ${gebruikt}
-</p>
-
-<p>
-Omzet betaald:
-€${betaald * CONFIG.TICKET_PRIJS}
-</p>
-
-</body>
-
-</html>
-    `);
-}
-
-
-/* =========================================================
-   TIKKIE OVERZICHT
-========================================================= */
-
-function tikkieOverzicht() {
-
-  let html =
-    "<h1>Tikkie overzicht</h1>";
-
-  for (
-    let i = 0;
-    i < CONFIG.TIKKIE_URLS.length;
-    i++
-  ) {
-
-    const nummer = i + 1;
-
-    const aantal =
-      telTikkieBestellingen(
-        nummer
-      );
-
-    html +=
-      "<p>" +
-      "<strong>Tikkie " +
-      nummer +
-      "</strong>: " +
-      aantal +
-      " bestelling(en)" +
-      "</p>";
-  }
-
-  return HtmlService
-    .createHtmlOutput(html);
-}
-
-
-/* =========================================================
-   SCANNER
-========================================================= */
-
-function scannerPagina() {
-
-  return HtmlService
-    .createHtmlOutput(`
-<!DOCTYPE html>
-<html>
-
-<head>
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-
-<title>
-Ticket Scanner
-</title>
-
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js">
-</script>
-
-<style>
-
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  background: #111;
-  color: white;
-  margin: 0;
-  padding: 20px;
-}
-
-h1 {
-  margin-bottom: 10px;
-}
-
-video {
-  width: 100%;
-  max-width: 500px;
-  border-radius: 15px;
-  margin-top: 20px;
-  background: black;
-}
-
-canvas {
-  display: none;
-}
-
-#resultaat {
-  font-size: 24px;
-  font-weight: bold;
-  margin-top: 20px;
-  min-height: 40px;
-}
-
-button {
-  padding: 15px 25px;
-  border: none;
-  border-radius: 8px;
-  font-size: 18px;
-  margin-top: 20px;
-  cursor: pointer;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<h1>
-Ticket Scanner
-</h1>
-
-<p>
-Richt de camera op de QR-code.
-</p>
-
-<video
-id="video"
-autoplay
-playsinline>
-</video>
-
-<canvas
-id="canvas">
-</canvas>
-
-<div id="resultaat">
-Camera starten...
-</div>
-
-<button
-onclick="startCamera()">
-Scanner opnieuw starten
-</button>
-
-
-<script>
-
-const video =
-  document.getElementById("video");
-
-const canvas =
-  document.getElementById("canvas");
-
-const context =
-  canvas.getContext("2d");
-
-const resultaat =
-  document.getElementById("resultaat");
-
-let stream = null;
+let scanner = null;
 let bezig = false;
+let scannerPin = "";
+let laatsteQr = "";
+let laatsteScanTijd = 0;
 
+function toonStatus(titel, naam, soort) {
+  const box = document.getElementById("status");
+  const titelEl = document.getElementById("statusTitel");
+  const naamEl = document.getElementById("statusNaam");
 
-async function startCamera() {
+  box.className = "";
 
-  try {
-
-    if (stream) {
-
-      stream
-        .getTracks()
-        .forEach(
-          track => track.stop()
-        );
-    }
-
-    stream =
-      await navigator.mediaDevices
-        .getUserMedia({
-          video: {
-            facingMode: {
-              ideal: "environment"
-            }
-          },
-          audio: false
-        });
-
-    video.srcObject =
-      stream;
-
-    resultaat.innerText =
-      "Camera actief...";
-
-    bezig = false;
-
-    requestAnimationFrame(
-      scanFrame
-    );
-
-  } catch (error) {
-
-    resultaat.innerText =
-      "Camera kan niet worden gestart: " +
-      error.message;
-  }
-}
-
-
-function scanFrame() {
-
-  if (
-    video.readyState ===
-    video.HAVE_ENOUGH_DATA
-  ) {
-
-    canvas.width =
-      video.videoWidth;
-
-    canvas.height =
-      video.videoHeight;
-
-    context.drawImage(
-      video,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-
-    const imageData =
-      context.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-    const code =
-      jsQR(
-        imageData.data,
-        imageData.width,
-        imageData.height
-      );
-
-    if (
-      code &&
-      code.data &&
-      !bezig
-    ) {
-
-      bezig = true;
-
-      resultaat.innerText =
-        "QR-code gevonden...";
-
-      controleerQR(
-        code.data
-      );
-
-      return;
-    }
+  if (soort) {
+    box.classList.add(soort);
   }
 
-  requestAnimationFrame(
-    scanFrame
-  );
+  titelEl.textContent = titel || "";
+  naamEl.textContent = naam || "";
 }
 
-
-function controleerQR(data) {
-
+function haalTicketUitQr(qrTekst) {
   try {
+    const url = new URL(qrTekst);
 
-    const url =
-      new URL(data);
-
-    const id =
-      url.searchParams.get("id");
-
-    const token =
-      url.searchParams.get("token");
+    const id = url.searchParams.get("id");
+    const token = url.searchParams.get("token");
 
     if (!id || !token) {
+      return null;
+    }
 
-      resultaat.innerText =
-        "Ongeldige QR-code.";
+    return {
+      id: id,
+      token: token
+    };
+
+  } catch (error) {
+    return null;
+  }
+}
+
+function roepScannerApiAan(ticket, qrTekst) {
+  return new Promise(function(resolve, reject) {
+
+    const callbackNaam =
+      "__ticketCallback_" +
+      Date.now() +
+      "_" +
+      Math.floor(Math.random() * 100000);
+
+    const script =
+      document.createElement("script");
+
+    let klaar = false;
+
+    const timeout = setTimeout(function() {
+      opruimen();
+      reject(
+        new Error("Geen antwoord van de ticketserver.")
+      );
+    }, 10000);
+
+    function opruimen() {
+      if (klaar) return;
+
+      klaar = true;
+      clearTimeout(timeout);
+
+      try {
+        delete window[callbackNaam];
+      } catch (error) {
+        window[callbackNaam] = undefined;
+      }
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    }
+
+    window[callbackNaam] = function(data) {
+      opruimen();
+      resolve(data);
+    };
+
+    script.onerror = function() {
+      opruimen();
+
+      reject(
+        new Error(
+          "Ticketserver kon niet worden bereikt."
+        )
+      );
+    };
+
+    script.src =
+      WEBAPP_URL +
+      "?page=scanapi" +
+      "&id=" +
+      encodeURIComponent(ticket.id) +
+      "&token=" +
+      encodeURIComponent(ticket.token) +
+      "&qr=" +
+      encodeURIComponent(qrTekst) +
+      "&pin=" +
+      encodeURIComponent(scannerPin) +
+      "&callback=" +
+      encodeURIComponent(callbackNaam) +
+      "&t=" +
+      Date.now();
+
+    document.body.appendChild(script);
+  });
+}
+
+async function qrGevonden(qrTekst) {
+
+  const nu = Date.now();
+
+  if (bezig) {
+    return;
+  }
+
+  if (
+    qrTekst === laatsteQr &&
+    nu - laatsteScanTijd < 4000
+  ) {
+    return;
+  }
+
+  laatsteQr = qrTekst;
+  laatsteScanTijd = nu;
+  bezig = true;
+
+  const ticket =
+    haalTicketUitQr(qrTekst);
+
+  if (!ticket) {
+
+    toonStatus(
+      "ONGELDIGE QR-CODE",
+      "",
+      "fout"
+    );
+
+    setTimeout(function() {
 
       bezig = false;
 
-      setTimeout(
-        () => {
-          requestAnimationFrame(
-            scanFrame
-          );
-        },
-        2000
+      toonStatus(
+        "Klaar voor volgende ticket",
+        "",
+        ""
+      );
+
+    }, 1800);
+
+    return;
+  }
+
+  toonStatus(
+    "Ticket controleren...",
+    "",
+    ""
+  );
+
+  try {
+
+    const resultaat =
+      await roepScannerApiAan(
+        ticket,
+        qrTekst
+      );
+
+    if (resultaat.geldig) {
+
+      toonStatus(
+        "✓ TICKET GELDIG",
+        resultaat.naam || "",
+        "goed"
+      );
+
+    } else if (
+      resultaat.fout === "pin"
+    ) {
+
+      toonStatus(
+        "ONJUISTE PIN",
+        "Ververs de pagina en voer de juiste PIN in.",
+        "fout"
       );
 
       return;
+
+    } else if (
+      resultaat.gebruikt
+    ) {
+
+      toonStatus(
+        "✕ TICKET AL GEBRUIKT",
+        resultaat.naam || "",
+        "fout"
+      );
+
+    } else {
+
+      toonStatus(
+        resultaat.bericht ||
+          "ONGELDIG TICKET",
+        resultaat.naam || "",
+        "waarschuwing"
+      );
     }
-
-    const controleURL =
-      "${CONFIG.WEBAPP_URL}" +
-      "?page=controle" +
-      "&id=" +
-      encodeURIComponent(id) +
-      "&token=" +
-      encodeURIComponent(token);
-
-    window.location.href =
-      controleURL;
 
   } catch (error) {
 
-    resultaat.innerText =
-      "Ongeldige QR-code.";
+    toonStatus(
+      "VERBINDINGSFOUT",
+      error.message ||
+        "Probeer opnieuw.",
+      "fout"
+    );
+  }
+
+  setTimeout(function() {
 
     bezig = false;
 
-    setTimeout(
-      () => {
-        requestAnimationFrame(
-          scanFrame
-        );
-      },
-      2000
+    toonStatus(
+      "Klaar voor volgende ticket",
+      "",
+      ""
     );
-  }
+
+  }, 2200);
 }
 
+function scannerStarten() {
 
-startCamera();
+  const pin =
+    document
+      .getElementById("pin")
+      .value
+      .trim();
 
+  if (!pin) {
+
+    alert(
+      "Vul eerst de organisator-PIN in."
+    );
+
+    return;
+  }
+
+  scannerPin = pin;
+
+  document
+    .getElementById("pinBox")
+    .style.display = "none";
+
+  document
+    .getElementById("scannerBox")
+    .style.display = "block";
+
+  scanner =
+    new Html5QrcodeScanner(
+      "reader",
+      {
+        fps: 10,
+
+        qrbox: {
+          width: 250,
+          height: 250
+        },
+
+        rememberLastUsedCamera: true,
+
+        supportedScanTypes: [
+          Html5QrcodeScanType.SCAN_TYPE_CAMERA
+        ]
+      },
+      false
+    );
+
+  scanner.render(
+    qrGevonden,
+    function() {
+      // Geen melding nodig tijdens
+      // normale scanpogingen.
+    }
+  );
+
+  toonStatus(
+    "Kies/start de camera",
+    "",
+    ""
+  );
+}
 </script>
 
 </body>
-
 </html>
-    `);
-}

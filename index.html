@@ -2,13 +2,22 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
   <title>Feest-scanner</title>
 
+  <!-- QR-scanner bibliotheek -->
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       padding: 18px;
@@ -19,44 +28,105 @@
     }
 
     .container {
+      width: 100%;
       max-width: 560px;
-      margin: auto;
+      margin: 0 auto;
     }
 
     h1 {
-      margin: 8px 0 12px;
+      margin-top: 8px;
+      margin-bottom: 18px;
+      font-size: 30px;
+    }
+
+    #pinBox {
+      background: #222;
+      padding: 22px;
+      border-radius: 16px;
+      margin-top: 20px;
+    }
+
+    #pinBox p {
+      margin-top: 0;
+      line-height: 1.5;
+    }
+
+    input {
+      width: 100%;
+      padding: 16px;
+      margin-bottom: 12px;
+
+      border: 1px solid #aaa;
+      border-radius: 10px;
+
+      font-size: 20px;
+      text-align: center;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+
+      border: none;
+      border-radius: 10px;
+
+      background: white;
+      color: black;
+
+      font-size: 18px;
+      font-weight: bold;
+
+      cursor: pointer;
+    }
+
+    #scannerBox {
+      display: none;
     }
 
     #reader {
       width: 100%;
+      overflow: hidden;
+
       background: white;
       border-radius: 16px;
-      overflow: hidden;
     }
 
     #status {
-      margin: 18px 0;
-      padding: 22px 14px;
+      margin-top: 18px;
+
+      min-height: 120px;
+      padding: 20px;
+
       border-radius: 16px;
+
       background: #222;
-      min-height: 70px;
+
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: center;
+
+      transition: background 0.2s;
     }
 
     #statusTitel {
-      font-size: 30px;
+      font-size: 28px;
       font-weight: bold;
     }
 
     #statusNaam {
-      margin-top: 8px;
+      margin-top: 10px;
       font-size: 23px;
+      font-weight: bold;
+    }
+
+    #statusExtra {
+      margin-top: 8px;
+      font-size: 16px;
     }
 
     .goed {
-      background: #0b7a2a !important;
+      background: #08752b !important;
     }
 
     .fout {
@@ -67,325 +137,667 @@
       background: #9a6700 !important;
     }
 
-    button, input {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 15px;
-      border-radius: 10px;
-      font-size: 18px;
-    }
-
-    input {
-      border: 1px solid #aaa;
-      margin-bottom: 10px;
-    }
-
-    button {
-      border: 0;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    #pinBox {
-      background: #222;
-      padding: 18px;
-      border-radius: 14px;
-      margin-bottom: 18px;
-    }
-
-    #scannerBox {
-      display: none;
+    .bezig {
+      background: #244a7c !important;
     }
 
     .klein {
+      margin-top: 14px;
       font-size: 14px;
-      opacity: .8;
-      margin-top: 8px;
+      opacity: 0.75;
+      line-height: 1.5;
     }
   </style>
 </head>
 
 <body>
+
 <div class="container">
+
   <h1>🎟️ Feest-scanner</h1>
 
+
+  <!-- ============================= -->
+  <!-- PIN SCHERM -->
+  <!-- ============================= -->
+
   <div id="pinBox">
-    <p>Voer één keer de organisator-PIN in.</p>
+
+    <p>
+      Vul de organisator-PIN in om de scanner te starten.
+    </p>
 
     <input
       id="pin"
       type="password"
       inputmode="numeric"
       autocomplete="off"
-      placeholder="PIN">
+      placeholder="Scanner PIN"
+    >
 
-    <button onclick="scannerStarten()">
-      Scanner starten
+    <button
+      type="button"
+      onclick="scannerStarten()"
+    >
+      📷 Scanner starten
     </button>
+
   </div>
 
+
+  <!-- ============================= -->
+  <!-- SCANNER -->
+  <!-- ============================= -->
+
   <div id="scannerBox">
+
     <div id="reader"></div>
 
     <div id="status">
-      <div id="statusTitel">Klaar om te scannen</div>
+
+      <div id="statusTitel">
+        Scanner starten...
+      </div>
+
       <div id="statusNaam"></div>
+
+      <div id="statusExtra"></div>
+
     </div>
 
     <div class="klein">
-      Na iedere scan gaat de camera automatisch verder.
+      Na iedere controle is de scanner automatisch
+      weer klaar voor het volgende ticket.
     </div>
+
   </div>
+
 </div>
 
+
 <script>
+
+/* =========================================================
+   INSTELLINGEN
+========================================================= */
+
 const WEBAPP_URL =
   "https://script.google.com/macros/s/AKfycbxJZJgxn0BpdSv8b2K9MAuNaPvgsBlCO5tdnlivnWTFdNqnB8w6frFH0dofm4Oyx9YF/exec";
 
+
+/* =========================================================
+   VARIABELEN
+========================================================= */
+
 let scanner = null;
-let bezig = false;
+
 let scannerPin = "";
+
+let bezig = false;
+
 let laatsteQr = "";
+
 let laatsteScanTijd = 0;
 
-function toonStatus(titel, naam, soort) {
-  const box = document.getElementById("status");
-  const titelEl = document.getElementById("statusTitel");
-  const naamEl = document.getElementById("statusNaam");
+
+/* =========================================================
+   STATUS TONEN
+========================================================= */
+
+function toonStatus(
+  titel,
+  naam,
+  extra,
+  soort
+) {
+
+  const box =
+    document.getElementById("status");
+
+  const titelEl =
+    document.getElementById("statusTitel");
+
+  const naamEl =
+    document.getElementById("statusNaam");
+
+  const extraEl =
+    document.getElementById("statusExtra");
+
 
   box.className = "";
+
 
   if (soort) {
     box.classList.add(soort);
   }
 
-  titelEl.textContent = titel || "";
-  naamEl.textContent = naam || "";
+
+  titelEl.textContent =
+    titel || "";
+
+  naamEl.textContent =
+    naam || "";
+
+  extraEl.textContent =
+    extra || "";
 }
+
+
+/* =========================================================
+   QR-CODE UITLEZEN
+========================================================= */
 
 function haalTicketUitQr(qrTekst) {
-  try {
-    const url = new URL(qrTekst);
 
-    const id = url.searchParams.get("id");
-    const token = url.searchParams.get("token");
+  try {
+
+    const url =
+      new URL(qrTekst);
+
+
+    const id =
+      url.searchParams.get("id");
+
+
+    const token =
+      url.searchParams.get("token");
+
 
     if (!id || !token) {
+
       return null;
+
     }
+
 
     return {
-      id: id,
-      token: token
+
+      id: String(id).trim(),
+
+      token: String(token).trim()
+
     };
+
 
   } catch (error) {
+
     return null;
+
   }
+
 }
 
-function roepScannerApiAan(ticket, qrTekst) {
-  return new Promise(function(resolve, reject) {
 
-    const callbackNaam =
-      "__ticketCallback_" +
-      Date.now() +
-      "_" +
-      Math.floor(Math.random() * 100000);
+/* =========================================================
+   APPS SCRIPT AANROEPEN
+   JSONP WORDT GEBRUIKT OMDAT DE SCANNER
+   OP GITHUB PAGES STAAT.
+========================================================= */
 
-    const script =
-      document.createElement("script");
+function roepScannerApiAan(
+  ticket,
+  volledigeQr
+) {
 
-    let klaar = false;
+  return new Promise(
+    function(resolve, reject) {
 
-    const timeout = setTimeout(function() {
-      opruimen();
-      reject(
-        new Error("Geen antwoord van de ticketserver.")
-      );
-    }, 10000);
 
-    function opruimen() {
-      if (klaar) return;
+      const callbackNaam =
 
-      klaar = true;
-      clearTimeout(timeout);
+        "__ticketScannerCallback_" +
 
-      try {
-        delete window[callbackNaam];
-      } catch (error) {
-        window[callbackNaam] = undefined;
+        Date.now() +
+
+        "_" +
+
+        Math.floor(
+          Math.random() * 1000000
+        );
+
+
+      const script =
+        document.createElement("script");
+
+
+      let afgehandeld = false;
+
+
+      /* ---------------------------------
+         TIMEOUT
+      --------------------------------- */
+
+      const timeout =
+        setTimeout(
+          function() {
+
+            opruimen();
+
+            reject(
+              new Error(
+                "Ticketserver reageert niet."
+              )
+            );
+
+          },
+          15000
+        );
+
+
+      /* ---------------------------------
+         OPRUIMEN
+      --------------------------------- */
+
+      function opruimen() {
+
+        if (afgehandeld) {
+          return;
+        }
+
+        afgehandeld = true;
+
+
+        clearTimeout(timeout);
+
+
+        try {
+
+          delete window[callbackNaam];
+
+        } catch (error) {
+
+          window[callbackNaam] =
+            undefined;
+
+        }
+
+
+        if (script.parentNode) {
+
+          script.parentNode
+            .removeChild(script);
+
+        }
+
       }
 
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
+
+      /* ---------------------------------
+         CALLBACK VAN APPS SCRIPT
+      --------------------------------- */
+
+      window[callbackNaam] =
+        function(data) {
+
+          opruimen();
+
+          resolve(data);
+
+        };
+
+
+      /* ---------------------------------
+         SCRIPT FOUT
+      --------------------------------- */
+
+      script.onerror =
+        function() {
+
+          opruimen();
+
+          reject(
+            new Error(
+              "Ticketserver kon niet worden bereikt."
+            )
+          );
+
+        };
+
+
+      /* ---------------------------------
+         API URL
+      --------------------------------- */
+
+      const apiUrl =
+
+        WEBAPP_URL +
+
+        "?page=scanapi" +
+
+        "&id=" +
+        encodeURIComponent(ticket.id) +
+
+        "&token=" +
+        encodeURIComponent(ticket.token) +
+
+        "&qr=" +
+        encodeURIComponent(volledigeQr) +
+
+        "&pin=" +
+        encodeURIComponent(scannerPin) +
+
+        "&callback=" +
+        encodeURIComponent(callbackNaam) +
+
+        "&tijd=" +
+        Date.now();
+
+
+      script.src =
+        apiUrl;
+
+
+      document.body
+        .appendChild(script);
+
     }
+  );
 
-    window[callbackNaam] = function(data) {
-      opruimen();
-      resolve(data);
-    };
-
-    script.onerror = function() {
-      opruimen();
-
-      reject(
-        new Error(
-          "Ticketserver kon niet worden bereikt."
-        )
-      );
-    };
-
-    script.src =
-      WEBAPP_URL +
-      "?page=scanapi" +
-      "&id=" +
-      encodeURIComponent(ticket.id) +
-      "&token=" +
-      encodeURIComponent(ticket.token) +
-      "&qr=" +
-      encodeURIComponent(qrTekst) +
-      "&pin=" +
-      encodeURIComponent(scannerPin) +
-      "&callback=" +
-      encodeURIComponent(callbackNaam) +
-      "&t=" +
-      Date.now();
-
-    document.body.appendChild(script);
-  });
 }
 
-async function qrGevonden(qrTekst) {
 
-  const nu = Date.now();
+/* =========================================================
+   QR GEVONDEN
+========================================================= */
+
+async function qrGevonden(
+  qrTekst
+) {
+
+  const nu =
+    Date.now();
+
+
+  /* Scanner is al bezig */
 
   if (bezig) {
+
     return;
+
   }
+
+
+  /* Voorkom dat dezelfde QR meteen
+     tientallen keren wordt gelezen */
 
   if (
     qrTekst === laatsteQr &&
     nu - laatsteScanTijd < 4000
   ) {
+
     return;
+
   }
 
-  laatsteQr = qrTekst;
-  laatsteScanTijd = nu;
-  bezig = true;
+
+  laatsteQr =
+    qrTekst;
+
+  laatsteScanTijd =
+    nu;
+
+  bezig =
+    true;
+
+
+  /* ---------------------------------
+     QR UITLEZEN
+  --------------------------------- */
 
   const ticket =
     haalTicketUitQr(qrTekst);
 
+
   if (!ticket) {
 
     toonStatus(
-      "ONGELDIGE QR-CODE",
+      "✕ ONGELDIGE QR-CODE",
       "",
+      "Dit is geen geldige ticket-QR.",
       "fout"
     );
 
-    setTimeout(function() {
 
-      bezig = false;
+    setTimeout(
+      scannerWeerKlaar,
+      2200
+    );
 
-      toonStatus(
-        "Klaar voor volgende ticket",
-        "",
-        ""
-      );
-
-    }, 1800);
 
     return;
+
   }
+
+
+  /* ---------------------------------
+     CONTROLEREN
+  --------------------------------- */
 
   toonStatus(
     "Ticket controleren...",
     "",
-    ""
+    "Even geduld",
+    "bezig"
   );
+
 
   try {
 
+
     const resultaat =
+
       await roepScannerApiAan(
         ticket,
         qrTekst
       );
 
-    if (resultaat.geldig) {
+
+    console.log(
+      "Antwoord ticketserver:",
+      resultaat
+    );
+
+
+    /* =================================
+       GELDIG
+    ================================= */
+
+    if (
+      resultaat &&
+      resultaat.geldig === true
+    ) {
 
       toonStatus(
         "✓ TICKET GELDIG",
         resultaat.naam || "",
+        "Toegang toegestaan",
         "goed"
       );
 
-    } else if (
+
+      setTimeout(
+        scannerWeerKlaar,
+        2200
+      );
+
+
+      return;
+
+    }
+
+
+    /* =================================
+       VERKEERDE PIN
+    ================================= */
+
+    if (
+      resultaat &&
       resultaat.fout === "pin"
     ) {
 
       toonStatus(
-        "ONJUISTE PIN",
+        "✕ ONJUISTE PIN",
+        "",
         "Ververs de pagina en voer de juiste PIN in.",
         "fout"
       );
 
+
+      /* Niet automatisch doorgaan */
+
       return;
 
-    } else if (
-      resultaat.gebruikt
+    }
+
+
+    /* =================================
+       AL GEBRUIKT
+    ================================= */
+
+    if (
+      resultaat &&
+      (
+        resultaat.gebruikt === true ||
+        resultaat.fout === "gebruikt"
+      )
     ) {
 
       toonStatus(
         "✕ TICKET AL GEBRUIKT",
         resultaat.naam || "",
+        resultaat.gebruiktOp
+          ? "Gebruikt: " +
+            resultaat.gebruiktOp
+          : "",
         "fout"
       );
 
-    } else {
+
+      setTimeout(
+        scannerWeerKlaar,
+        2500
+      );
+
+
+      return;
+
+    }
+
+
+    /* =================================
+       NIET BETAALD
+    ================================= */
+
+    if (
+      resultaat &&
+      resultaat.fout === "niet_betaald"
+    ) {
 
       toonStatus(
-        resultaat.bericht ||
-          "ONGELDIG TICKET",
+        "✕ TICKET NIET BETAALD",
         resultaat.naam || "",
-        "waarschuwing"
+        "Betaling is nog niet bevestigd.",
+        "fout"
       );
+
+
+      setTimeout(
+        scannerWeerKlaar,
+        2500
+      );
+
+
+      return;
+
     }
+
+
+    /* =================================
+       ONGELDIG
+    ================================= */
+
+    toonStatus(
+      "✕ ONGELDIG TICKET",
+      resultaat &&
+      resultaat.naam
+        ? resultaat.naam
+        : "",
+      resultaat &&
+      resultaat.bericht
+        ? resultaat.bericht
+        : "Ticket bestaat niet of gegevens kloppen niet.",
+      "fout"
+    );
+
+
+    setTimeout(
+      scannerWeerKlaar,
+      2500
+    );
+
 
   } catch (error) {
 
+
+    console.error(
+      "Scannerfout:",
+      error
+    );
+
+
     toonStatus(
-      "VERBINDINGSFOUT",
+      "✕ VERBINDINGSFOUT",
+      "",
       error.message ||
-        "Probeer opnieuw.",
+      "Ticketserver kon niet worden bereikt.",
       "fout"
     );
-  }
 
-  setTimeout(function() {
 
-    bezig = false;
-
-    toonStatus(
-      "Klaar voor volgende ticket",
-      "",
-      ""
+    setTimeout(
+      scannerWeerKlaar,
+      3000
     );
 
-  }, 2200);
+  }
+
 }
+
+
+/* =========================================================
+   SCANNER WEER VRIJGEVEN
+========================================================= */
+
+function scannerWeerKlaar() {
+
+  bezig =
+    false;
+
+
+  toonStatus(
+    "Klaar voor volgende ticket",
+    "",
+    "Scan de volgende QR-code.",
+    ""
+  );
+
+}
+
+
+/* =========================================================
+   SCANNER STARTEN
+========================================================= */
 
 function scannerStarten() {
 
+
   const pin =
+
     document
       .getElementById("pin")
       .value
       .trim();
+
 
   if (!pin) {
 
@@ -394,52 +806,136 @@ function scannerStarten() {
     );
 
     return;
+
   }
 
-  scannerPin = pin;
+
+  scannerPin =
+    pin;
+
+
+  /* PIN scherm verbergen */
 
   document
     .getElementById("pinBox")
-    .style.display = "none";
+    .style.display =
+      "none";
+
+
+  /* Scanner zichtbaar maken */
 
   document
     .getElementById("scannerBox")
-    .style.display = "block";
+    .style.display =
+      "block";
+
+
+  toonStatus(
+    "Camera starten...",
+    "",
+    "Geef cameratoegang als daarom wordt gevraagd.",
+    "bezig"
+  );
+
+
+  /* ---------------------------------
+     HTML5 QR SCANNER
+  --------------------------------- */
 
   scanner =
     new Html5QrcodeScanner(
+
       "reader",
+
       {
+
         fps: 10,
 
         qrbox: {
+
           width: 250,
+
           height: 250
+
         },
 
-        rememberLastUsedCamera: true,
+        rememberLastUsedCamera:
+          true,
 
         supportedScanTypes: [
-          Html5QrcodeScanType.SCAN_TYPE_CAMERA
+
+          Html5QrcodeScanType
+            .SCAN_TYPE_CAMERA
+
         ]
+
       },
+
       false
+
     );
 
+
+  /* ---------------------------------
+     START
+  --------------------------------- */
+
   scanner.render(
-    qrGevonden,
-    function() {
-      // Geen melding nodig tijdens
-      // normale scanpogingen.
+
+    function(decodedText) {
+
+      qrGevonden(
+        decodedText
+      );
+
+    },
+
+    function(errorMessage) {
+
+      /*
+        Dit is normaal tijdens het zoeken
+        naar een QR-code.
+
+        Daarom tonen we deze meldingen
+        niet op het scherm.
+      */
+
+    }
+
+  );
+
+
+  toonStatus(
+    "Camera klaar",
+    "",
+    "Richt de camera op een ticket.",
+    ""
+  );
+
+}
+
+
+/* =========================================================
+   ENTER BIJ PIN
+========================================================= */
+
+document
+  .getElementById("pin")
+  .addEventListener(
+    "keydown",
+    function(event) {
+
+      if (
+        event.key === "Enter"
+      ) {
+
+        scannerStarten();
+
+      }
+
     }
   );
 
-  toonStatus(
-    "Kies/start de camera",
-    "",
-    ""
-  );
-}
 </script>
 
 </body>

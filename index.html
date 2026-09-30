@@ -1,157 +1,385 @@
-```html
 <!DOCTYPE html>
 <html lang="nl">
-
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+  <title>Feest-scanner</title>
 
-<meta charset="UTF-8">
+  <script src="https://unpkg.com/html5-qrcode"></script>
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0"
->
+  <style>
+    body {
+      margin: 0;
+      padding: 18px;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
 
-<title>Ticket Scanner</title>
+    .container {
+      max-width: 560px;
+      margin: auto;
+    }
 
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    h1 {
+      margin: 8px 0 12px;
+    }
 
-<style>
+    #reader {
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+    }
 
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  margin: 0;
-  padding: 20px;
-  background: #f5f5f5;
-}
+    #status {
+      margin: 18px 0;
+      padding: 22px 14px;
+      border-radius: 16px;
+      background: #222;
+      min-height: 70px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
 
-h1 {
-  margin-bottom: 20px;
-}
+    #statusTitel {
+      font-size: 30px;
+      font-weight: bold;
+    }
 
-input {
-  font-size: 20px;
-  padding: 12px;
-  width: 200px;
-  text-align: center;
-  border-radius: 8px;
-  border: 1px solid #aaa;
-}
+    #statusNaam {
+      margin-top: 8px;
+      font-size: 23px;
+    }
 
-button {
-  font-size: 20px;
-  padding: 12px 20px;
-  margin: 15px 5px;
-  border: 0;
-  border-radius: 8px;
-  background: #222;
-  color: white;
-}
+    .goed {
+      background: #0b7a2a !important;
+    }
 
-button:active {
-  transform: scale(0.98);
-}
+    .fout {
+      background: #b3261e !important;
+    }
 
-#video {
-  width: 100%;
-  max-width: 500px;
-  margin-top: 15px;
-  border-radius: 12px;
-  background: black;
-}
+    .waarschuwing {
+      background: #9a6700 !important;
+    }
 
-#result {
-  margin-top: 20px;
-  padding: 20px;
-  border-radius: 12px;
-  font-size: 22px;
-  font-weight: bold;
-}
+    button, input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 18px;
+    }
 
-canvas {
-  display: none;
-}
+    input {
+      border: 1px solid #aaa;
+      margin-bottom: 10px;
+    }
 
-</style>
+    button {
+      border: 0;
+      cursor: pointer;
+      font-weight: bold;
+    }
 
+    #pinBox {
+      background: #222;
+      padding: 18px;
+      border-radius: 14px;
+      margin-bottom: 18px;
+    }
+
+    #scannerBox {
+      display: none;
+    }
+
+    .klein {
+      font-size: 14px;
+      opacity: .8;
+      margin-top: 8px;
+    }
+  </style>
 </head>
 
-
 <body>
+<div class="container">
+  <h1>🎟️ Feest-scanner</h1>
 
-<h1>🎟️ Ticket Scanner</h1>
+  <div id="pinBox">
+    <p>Voer één keer de organisator-PIN in.</p>
 
+    <input
+      id="pin"
+      type="password"
+      inputmode="numeric"
+      autocomplete="off"
+      placeholder="PIN">
 
-<input
-  id="pin"
-  type="password"
-  placeholder="Scanner PIN"
-  inputmode="numeric"
-  autocomplete="off"
->
+    <button onclick="scannerStarten()">
+      Scanner starten
+    </button>
+  </div>
 
-<br>
+  <div id="scannerBox">
+    <div id="reader"></div>
 
+    <div id="status">
+      <div id="statusTitel">Klaar om te scannen</div>
+      <div id="statusNaam"></div>
+    </div>
 
-<button
-  id="startButton"
-  type="button"
-  onclick="startScanner()"
->
-  📷 Scanner starten
-</button>
-
-
-<video
-  id="video"
-  playsinline
-  autoplay
-></video>
-
-
-<canvas id="canvas"></canvas>
-
-
-<div id="result"></div>
-
+    <div class="klein">
+      Na iedere scan gaat de camera automatisch verder.
+    </div>
+  </div>
+</div>
 
 <script>
+const WEBAPP_URL =
+  "https://script.google.com/macros/s/AKfycbxJZJgxn0BpdSv8b2K9MAuNaPvgsBlCO5tdnlivnWTFdNqnB8w6frFH0dofm4Oyx9YF/exec";
 
-/************************************************
- * JOUW NIEUWE GOOGLE APPS SCRIPT URL
- ************************************************/
+let scanner = null;
+let bezig = false;
+let scannerPin = "";
+let laatsteQr = "";
+let laatsteScanTijd = 0;
 
-const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbzDpQQLQ2VWroJLGCbIJfhBjcxjIQG3mxD3vxdluHUvYI-gjLn28OaQQQEm2JN1aWcS/exec";
+function toonStatus(titel, naam, soort) {
+  const box = document.getElementById("status");
+  const titelEl = document.getElementById("statusTitel");
+  const naamEl = document.getElementById("statusNaam");
 
+  box.className = "";
 
-/************************************************
- * ELEMENTEN
- ************************************************/
+  if (soort) {
+    box.classList.add(soort);
+  }
 
-const video =
-  document.getElementById("video");
+  titelEl.textContent = titel || "";
+  naamEl.textContent = naam || "";
+}
 
-const canvas =
-  document.getElementById("canvas");
+function haalTicketUitQr(qrTekst) {
+  try {
+    const url = new URL(qrTekst);
 
-const ctx =
-  canvas.getContext("2d");
+    const id = url.searchParams.get("id");
+    const token = url.searchParams.get("token");
 
-const result =
-  document.getElementById("result");
+    if (!id || !token) {
+      return null;
+    }
 
+    return {
+      id: id,
+      token: token
+    };
 
-let scanning = false;
+  } catch (error) {
+    return null;
+  }
+}
 
-let stream = null;
+function roepScannerApiAan(ticket, qrTekst) {
+  return new Promise(function(resolve, reject) {
 
+    const callbackNaam =
+      "__ticketCallback_" +
+      Date.now() +
+      "_" +
+      Math.floor(Math.random() * 100000);
 
-/************************************************
- * SCANNER STARTEN
- ************************************************/
+    const script =
+      document.createElement("script");
 
-async function startScanner() {
+    let klaar = false;
+
+    const timeout = setTimeout(function() {
+      opruimen();
+      reject(
+        new Error("Geen antwoord van de ticketserver.")
+      );
+    }, 10000);
+
+    function opruimen() {
+      if (klaar) return;
+
+      klaar = true;
+      clearTimeout(timeout);
+
+      try {
+        delete window[callbackNaam];
+      } catch (error) {
+        window[callbackNaam] = undefined;
+      }
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    }
+
+    window[callbackNaam] = function(data) {
+      opruimen();
+      resolve(data);
+    };
+
+    script.onerror = function() {
+      opruimen();
+
+      reject(
+        new Error(
+          "Ticketserver kon niet worden bereikt."
+        )
+      );
+    };
+
+    script.src =
+      WEBAPP_URL +
+      "?page=scanapi" +
+      "&id=" +
+      encodeURIComponent(ticket.id) +
+      "&token=" +
+      encodeURIComponent(ticket.token) +
+      "&qr=" +
+      encodeURIComponent(qrTekst) +
+      "&pin=" +
+      encodeURIComponent(scannerPin) +
+      "&callback=" +
+      encodeURIComponent(callbackNaam) +
+      "&t=" +
+      Date.now();
+
+    document.body.appendChild(script);
+  });
+}
+
+async function qrGevonden(qrTekst) {
+
+  const nu = Date.now();
+
+  if (bezig) {
+    return;
+  }
+
+  if (
+    qrTekst === laatsteQr &&
+    nu - laatsteScanTijd < 4000
+  ) {
+    return;
+  }
+
+  laatsteQr = qrTekst;
+  laatsteScanTijd = nu;
+  bezig = true;
+
+  const ticket =
+    haalTicketUitQr(qrTekst);
+
+  if (!ticket) {
+
+    toonStatus(
+      "ONGELDIGE QR-CODE",
+      "",
+      "fout"
+    );
+
+    setTimeout(function() {
+
+      bezig = false;
+
+      toonStatus(
+        "Klaar voor volgende ticket",
+        "",
+        ""
+      );
+
+    }, 1800);
+
+    return;
+  }
+
+  toonStatus(
+    "Ticket controleren...",
+    "",
+    ""
+  );
+
+  try {
+
+    const resultaat =
+      await roepScannerApiAan(
+        ticket,
+        qrTekst
+      );
+
+    if (resultaat.geldig) {
+
+      toonStatus(
+        "✓ TICKET GELDIG",
+        resultaat.naam || "",
+        "goed"
+      );
+
+    } else if (
+      resultaat.fout === "pin"
+    ) {
+
+      toonStatus(
+        "ONJUISTE PIN",
+        "Ververs de pagina en voer de juiste PIN in.",
+        "fout"
+      );
+
+      return;
+
+    } else if (
+      resultaat.gebruikt
+    ) {
+
+      toonStatus(
+        "✕ TICKET AL GEBRUIKT",
+        resultaat.naam || "",
+        "fout"
+      );
+
+    } else {
+
+      toonStatus(
+        resultaat.bericht ||
+          "ONGELDIG TICKET",
+        resultaat.naam || "",
+        "waarschuwing"
+      );
+    }
+
+  } catch (error) {
+
+    toonStatus(
+      "VERBINDINGSFOUT",
+      error.message ||
+        "Probeer opnieuw.",
+      "fout"
+    );
+  }
+
+  setTimeout(function() {
+
+    bezig = false;
+
+    toonStatus(
+      "Klaar voor volgende ticket",
+      "",
+      ""
+    );
+
+  }, 2200);
+}
+
+function scannerStarten() {
 
   const pin =
     document
@@ -159,391 +387,60 @@ async function startScanner() {
       .value
       .trim();
 
-
   if (!pin) {
 
     alert(
-      "Vul eerst de Scanner PIN in."
+      "Vul eerst de organisator-PIN in."
     );
 
     return;
   }
 
+  scannerPin = pin;
 
-  result.style.background = "";
+  document
+    .getElementById("pinBox")
+    .style.display = "none";
 
-  result.innerHTML =
-    "📷 Camera wordt gestart...";
+  document
+    .getElementById("scannerBox")
+    .style.display = "block";
 
+  scanner =
+    new Html5QrcodeScanner(
+      "reader",
+      {
+        fps: 10,
 
-  try {
-
-    stream =
-      await navigator.mediaDevices.getUserMedia({
-
-        video: {
-
-          facingMode: {
-            ideal: "environment"
-          }
-
+        qrbox: {
+          width: 250,
+          height: 250
         },
 
-        audio: false
+        rememberLastUsedCamera: true,
 
-      });
-
-
-    video.srcObject = stream;
-
-    await video.play();
-
-
-    scanning = true;
-
-
-    result.innerHTML =
-      "🟢 Richt de camera op de QR-code.";
-
-
-    scanQR(pin);
-
-
-  } catch (error) {
-
-    scanning = false;
-
-
-    result.style.background =
-      "#ffcaca";
-
-
-    result.innerHTML =
-
-      "❌ Camera kan niet worden gestart." +
-      "<br><br>" +
-
-      "<small>" +
-
-      error.name +
-      ": " +
-      error.message +
-
-      "</small>";
-
-  }
-
-}
-
-
-/************************************************
- * QR-CODE SCANNEN
- ************************************************/
-
-function scanQR(pin) {
-
-  if (!scanning) {
-    return;
-  }
-
-
-  if (
-    video.readyState >=
-    video.HAVE_ENOUGH_DATA
-  ) {
-
-    canvas.width =
-      video.videoWidth;
-
-    canvas.height =
-      video.videoHeight;
-
-
-    ctx.drawImage(
-      video,
-      0,
-      0,
-      canvas.width,
-      canvas.height
+        supportedScanTypes: [
+          Html5QrcodeScanType.SCAN_TYPE_CAMERA
+        ]
+      },
+      false
     );
 
-
-    const imageData =
-      ctx.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-
-    const code =
-      jsQR(
-        imageData.data,
-        imageData.width,
-        imageData.height
-      );
-
-
-    if (code) {
-
-      scanning = false;
-
-
-      controleerTicket(
-        code.data,
-        pin
-      );
-
-
-      return;
-
-    }
-
-  }
-
-
-  requestAnimationFrame(
+  scanner.render(
+    qrGevonden,
     function() {
-      scanQR(pin);
+      // Geen melding nodig tijdens
+      // normale scanpogingen.
     }
   );
 
-}
-
-
-/************************************************
- * TICKET CONTROLEREN
- ************************************************/
-
-function controleerTicket(
-  token,
-  pin
-) {
-
-  result.style.background = "";
-
-  result.innerHTML =
-    "⏳ Ticket controleren...";
-
-
-  /*
-   * Unieke callbacknaam
-   */
-
-  const callbackNaam =
-    "ticketCallback_" +
-    Date.now();
-
-
-  /*
-   * Antwoord van Apps Script
-   */
-
-  window[callbackNaam] =
-    function(antwoord) {
-
-
-      /*
-       * GELDIG
-       */
-
-      if (antwoord.success === true) {
-
-        result.style.background =
-          "#c8f7d0";
-
-
-        result.innerHTML =
-
-          "✅ GELDIG TICKET" +
-          "<br><br>" +
-
-          "<b>" +
-          escapeHtml(
-            antwoord.naam || ""
-          ) +
-          "</b>" +
-
-          "<br><br>" +
-
-          "Aantal tickets: " +
-
-          escapeHtml(
-            String(
-              antwoord.aantal || ""
-            )
-          );
-
-      }
-
-
-      /*
-       * ONGELDIG
-       */
-
-      else {
-
-        result.style.background =
-          "#ffcaca";
-
-
-        result.innerHTML =
-
-          "❌ ONGELDIG TICKET" +
-          "<br><br>" +
-
-          escapeHtml(
-            antwoord.message ||
-            antwoord.melding ||
-            "Ticket ongeldig."
-          );
-
-      }
-
-
-      /*
-       * Na 3 seconden opnieuw klaar
-       */
-
-      setTimeout(
-        function() {
-
-          result.style.background =
-            "";
-
-          result.innerHTML =
-            "🟢 Klaar voor volgende ticket.";
-
-
-          scanning = true;
-
-
-          scanQR(pin);
-
-        },
-        3000
-      );
-
-    };
-
-
-  /*
-   * Als er een fout optreedt
-   */
-
-  window.onerror =
-    function() {
-
-      result.style.background =
-        "#ffcaca";
-
-      result.innerHTML =
-        "❌ Er ging iets mis bij het controleren.";
-
-    };
-
-
-  /*
-   * JSONP-script maken
-   */
-
-  const script =
-    document.createElement(
-      "script"
-    );
-
-
-  script.src =
-
-    APPS_SCRIPT_URL +
-
-    "?actie=scan" +
-
-    "&token=" +
-
-    encodeURIComponent(token) +
-
-    "&pin=" +
-
-    encodeURIComponent(pin) +
-
-    "&callback=" +
-
-    encodeURIComponent(
-      callbackNaam
-    );
-
-
-  /*
-   * Script toevoegen
-   */
-
-  document.body.appendChild(
-    script
+  toonStatus(
+    "Kies/start de camera",
+    "",
+    ""
   );
-
-
-  /*
-   * Opruimen na antwoord
-   */
-
-  setTimeout(
-    function() {
-
-      try {
-
-        delete window[
-          callbackNaam
-        ];
-
-      } catch (e) {}
-
-    },
-    10000
-  );
-
 }
-
-
-/************************************************
- * HTML VEILIG WEERGEVEN
- ************************************************/
-
-function escapeHtml(text) {
-
-  return String(text || "")
-
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-
-    .replace(
-      /</g,
-      "&lt;"
-    )
-
-    .replace(
-      />/g,
-      "&gt;"
-    )
-
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
-}
-
 </script>
 
 </body>
-
 </html>
-```

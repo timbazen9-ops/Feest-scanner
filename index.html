@@ -2,111 +2,279 @@
 <!doctype html>
 <html lang="nl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>14 nov fissa — ticketscanner</title>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<style>
-*{box-sizing:border-box}
-body{margin:0;padding:18px;background:#111;color:#fff;font:17px Arial,sans-serif;text-align:center}
-main{max-width:550px;margin:auto}
-h1{font-size:29px}
-input,button{font:inherit;padding:13px;border-radius:9px}
-input{width:100%;border:1px solid #aaa}
-button{border:0;background:#fff;color:#111;font-weight:bold;cursor:pointer;margin-top:10px}
-#start{width:100%}
-#reader{background:#fff;border-radius:12px;overflow:hidden;margin-top:16px}
-#status{padding:22px 12px;background:#303030;border-radius:14px;margin-top:15px;min-height:110px}
-#titel{font-size:26px;font-weight:bold}
-#naam{font-size:22px;font-weight:bold;margin-top:10px}
-#details{font-size:14px;margin-top:9px;overflow-wrap:anywhere}
-.goed{background:#08752b!important}
-.fout{background:#a81919!important}
-.bezig{background:#245187!important}
-#scanSectie{display:none}
-#handmatig{margin-top:22px;border-top:1px solid #444;padding-top:14px}
-#qrInput{font-size:14px}
-small{color:#ccc}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>14 nov fissa - Feest-scanner</title>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 18px;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    main {
+      max-width: 550px;
+      margin: auto;
+    }
+
+    h1 {
+      font-size: 29px;
+      margin-bottom: 22px;
+    }
+
+    input, button {
+      font: inherit;
+      padding: 13px;
+      border-radius: 9px;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid #aaa;
+    }
+
+    button {
+      border: 0;
+      background: white;
+      color: #111;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    #start {
+      width: 100%;
+    }
+
+    #reader {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    #status {
+      padding: 22px 12px;
+      background: #303030;
+      border-radius: 14px;
+      margin-top: 15px;
+      min-height: 110px;
+    }
+
+    #titel {
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    #naam {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    #details {
+      font-size: 14px;
+      margin-top: 9px;
+      overflow-wrap: anywhere;
+    }
+
+    .goed {
+      background: #08752b !important;
+    }
+
+    .fout {
+      background: #a81919 !important;
+    }
+
+    .bezig {
+      background: #245187 !important;
+    }
+
+    #scanSectie {
+      display: none;
+    }
+
+    #handmatig {
+      margin-top: 22px;
+      border-top: 1px solid #444;
+      padding-top: 14px;
+    }
+
+    #qrInput {
+      font-size: 14px;
+    }
+
+    small {
+      color: #ccc;
+    }
+  </style>
 </head>
+
 <body>
 
 <main>
-<h1>🎟️ Feest-scanner</h1>
 
-<section id="login">
-  <p>Organisator-PIN</p>
-  <input id="pin" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off">
-  <button id="start">📷 Start scanner</button>
-</section>
+  <h1>🎟️ Feest-scanner</h1>
 
-<section id="scanSectie">
-  <div id="reader"></div>
+  <section id="login">
+    <p>Organisator-PIN</p>
 
-  <div id="status">
-    <div id="titel">Camera starten...</div>
-    <div id="naam"></div>
-    <div id="details"></div>
-  </div>
+    <input
+      id="pin"
+      type="password"
+      inputmode="numeric"
+      placeholder="PIN"
+      autocomplete="off"
+    >
 
-  <div id="handmatig">
-    <p><small>QR-code niet leesbaar? Plak de volledige ticket- of controlelink.</small></p>
-    <input id="qrInput" type="text" placeholder="Plak ticketlink">
-    <button id="check">Controleer link</button>
-  </div>
+    <button id="start">
+      📷 Start scanner
+    </button>
+  </section>
 
-  <p><small>Oude en nieuwe tickets · scan is eenmalig</small></p>
-</section>
+  <section id="scanSectie">
+
+    <div id="reader"></div>
+
+    <div id="status">
+      <div id="titel">Camera starten...</div>
+      <div id="naam"></div>
+      <div id="details"></div>
+    </div>
+
+    <div id="handmatig">
+      <p>
+        <small>
+          QR-code niet leesbaar?
+          Plak de volledige ticketlink hieronder.
+        </small>
+      </p>
+
+      <input
+        id="qrInput"
+        type="text"
+        placeholder="Plak ticketlink"
+      >
+
+      <button id="check">
+        Controleer link
+      </button>
+    </div>
+
+    <p>
+      <small>
+        Oude en nieuwe tickets worden ondersteund.
+      </small>
+    </p>
+
+  </section>
+
 </main>
 
 <script>
-'use strict';
+"use strict";
+
+/* ==========================================
+   OUDE EN NIEUWE TICKETSERVER
+========================================== */
 
 const OUD =
-  'https://script.google.com/macros/s/AKfycbxJZJgxn0BpdSv8b2K9MAuNaPvgsBlCO5tdnlivnWTFdNqnB8w6frFH0dofm4Oyx9YF/exec';
+  "https://script.google.com/macros/s/" +
+  "AKfycbxJZJgxn0BpdSv8b2K9MAuNaPvgsBlCO5tdnlivnWTFdNqnB8w6frFH0dofm4Oyx9YF/exec";
 
 const NIEUW =
-  'https://script.google.com/macros/s/AKfycbwFLr6G7jniy76Oh8XEnkgE-t-eLymvFBXxPmzCTa-NLtanWgVY5D2_jVdrOk3SS2Ff/exec';
+  "https://script.google.com/macros/s/" +
+  "AKfycbwFLr6G7jniy76Oh8XEnkgE-t-eLymvFBXxPmzCTa-NLtanWgVY5D2_jVdrOk3SS2Ff/exec";
 
-let pin = '';
+
+/* ==========================================
+   VARIABELEN
+========================================== */
+
+let pin = "";
 let bezig = false;
-let laatst = '';
+let laatst = "";
 let laatsteTijd = 0;
 let camera = null;
+let resetTimer = null;
 
 const el = id => document.getElementById(id);
 
+
+/* ==========================================
+   STATUS TONEN
+========================================== */
+
 function status(titel, naam, details, soort) {
-  el('status').className = soort || '';
-  el('titel').textContent = titel;
-  el('naam').textContent = naam || '';
-  el('details').textContent = details || '';
+  el("status").className = soort || "";
+
+  el("titel").textContent = titel || "";
+  el("naam").textContent = naam || "";
+  el("details").textContent = details || "";
 }
 
+
+/* ==========================================
+   QR-CODE UITLEZEN
+========================================== */
+
 function leesQr(raw) {
-  let tekst = String(raw || '').trim().replace(/&amp;/g, '&');
+  let tekst = String(raw || "")
+    .trim()
+    .replace(/&amp;/g, "&");
 
   const gevonden = tekst.match(/https?:\/\/[^\s<>"']+/i);
-  if (gevonden) tekst = gevonden[0];
+
+  if (gevonden) {
+    tekst = gevonden[0];
+  }
 
   try {
     const u = new URL(tekst);
-    const id = u.searchParams.get('id');
-    const token = u.searchParams.get('token');
 
-    if (!id || !token) return null;
+    const id = u.searchParams.get("id");
+    const token = u.searchParams.get("token");
 
-    const pad = u.pathname.replace(/\/$/, '');
+    if (!id || !token) {
+      return null;
+    }
+
+    const pad = u.pathname.replace(/\/$/, "");
+
     const oudPad = new URL(OUD).pathname;
     const nieuwPad = new URL(NIEUW).pathname;
 
     let voorkeur = null;
 
-    if (u.hostname === 'script.google.com' && pad === oudPad) {
+    if (
+      u.hostname === "script.google.com" &&
+      pad === oudPad
+    ) {
       voorkeur = OUD;
-    } else if (u.hostname === 'script.google.com' && pad === nieuwPad) {
+
+    } else if (
+      u.hostname === "script.google.com" &&
+      pad === nieuwPad
+    ) {
       voorkeur = NIEUW;
-    } else if (!['script.google.com', 'script.googleusercontent.com'].includes(u.hostname)) {
+
+    } else if (
+      ![
+        "script.google.com",
+        "script.googleusercontent.com"
+      ].includes(u.hostname)
+    ) {
       return null;
     }
 
@@ -117,10 +285,13 @@ function leesQr(raw) {
     };
 
   } catch (error) {
+
     const id = tekst.match(/[?&]id=([^&#\s]+)/i);
     const tok = tekst.match(/[?&]token=([^&#\s]+)/i);
 
-    if (!id || !tok) return null;
+    if (!id || !tok) {
+      return null;
+    }
 
     try {
       return {
@@ -134,24 +305,40 @@ function leesQr(raw) {
   }
 }
 
+
+/* ==========================================
+   API AANROEPEN
+========================================== */
+
 function api(server, ticket) {
   return new Promise((resolve, reject) => {
+
     const naam =
-      '__feest_' + Date.now() + '_' +
+      "__feest_" +
+      Date.now() +
+      "_" +
       Math.floor(Math.random() * 100000000);
 
-    const script = document.createElement('script');
+    const script = document.createElement("script");
+
     let afgehandeld = false;
 
     const timer = setTimeout(() => {
-      afronden(null, new Error('Timeout bij ticketserver'));
+      afronden(
+        null,
+        new Error("Timeout bij ticketserver")
+      );
     }, 18000);
 
     function afronden(data, fout) {
-      if (afgehandeld) return;
+      if (afgehandeld) {
+        return;
+      }
+
       afgehandeld = true;
 
       clearTimeout(timer);
+
       script.onerror = null;
       script.remove();
 
@@ -161,18 +348,26 @@ function api(server, ticket) {
         window[naam] = undefined;
       }
 
-      if (fout) reject(fout);
-      else resolve(data);
+      if (fout) {
+        reject(fout);
+      } else {
+        resolve(data);
+      }
     }
 
-    window[naam] = data => afronden(data, null);
+    window[naam] = data => {
+      afronden(data, null);
+    };
 
     script.onerror = () => {
-      afronden(null, new Error('Server niet bereikbaar'));
+      afronden(
+        null,
+        new Error("Server niet bereikbaar")
+      );
     };
 
     const parameters = new URLSearchParams({
-      page: 'scanapi',
+      page: "scanapi",
       id: ticket.id,
       token: ticket.token,
       pin: pin,
@@ -180,17 +375,29 @@ function api(server, ticket) {
       t: String(Date.now())
     });
 
-    script.src = server + '?' + parameters.toString();
+    script.src =
+      server + "?" + parameters.toString();
+
     document.body.appendChild(script);
   });
 }
 
+
+/* ==========================================
+   TICKET CONTROLEREN
+========================================== */
+
 async function controleer(tekst) {
-  if (bezig) return;
+  if (bezig) {
+    return;
+  }
 
   const nu = Date.now();
 
-  if (tekst === laatst && nu - laatsteTijd < 4500) {
+  if (
+    tekst === laatst &&
+    nu - laatsteTijd < 4500
+  ) {
     return;
   }
 
@@ -202,138 +409,196 @@ async function controleer(tekst) {
 
   if (!ticket) {
     status(
-      '✕ QR NIET HERKEND',
-      '',
-      'QR bevat geen herkenbare ticketlink met id en token.',
-      'fout'
+      "✕ QR NIET HERKEND",
+      "",
+      "QR bevat geen herkenbare ticketlink met id en token.",
+      "fout"
     );
 
-    setTimeout(klaar, 3500);
+    opnieuwKlaarNa(3500);
     return;
   }
 
   status(
-    'Ticket controleren...',
-    '',
-    'Verbinding maken',
-    'bezig'
+    "Ticket controleren...",
+    "",
+    "Verbinding maken...",
+    "bezig"
   );
 
   const servers = ticket.voorkeur
-    ? [ticket.voorkeur, ticket.voorkeur === OUD ? NIEUW : OUD]
+    ? [
+        ticket.voorkeur,
+        ticket.voorkeur === OUD ? NIEUW : OUD
+      ]
     : [NIEUW, OUD];
 
   const fouten = [];
 
   for (const server of servers) {
     try {
-      const r = await api(server, ticket);
+      const resultaat = await api(server, ticket);
 
-      if (r && r.geldig === true) {
+      if (
+        resultaat &&
+        resultaat.geldig === true
+      ) {
         status(
-          '✓ TICKET GELDIG',
-          r.naam || '',
-          'Toegang toegestaan',
-          'goed'
+          "✓ TICKET GELDIG",
+          resultaat.naam || "",
+          "Toegang toegestaan",
+          "goed"
         );
-        setTimeout(klaar, 2700);
+
+        opnieuwKlaarNa(2700);
         return;
       }
 
-      if (r && r.fout === 'pin') {
+      if (
+        resultaat &&
+        resultaat.fout === "pin"
+      ) {
         status(
-          '✕ ONJUISTE PIN',
-          '',
-          'Ververs de pagina en vul de juiste PIN in.',
-          'fout'
+          "✕ ONJUISTE PIN",
+          "",
+          "Ververs de pagina en voer de juiste PIN in.",
+          "fout"
         );
         return;
       }
 
-      if (r && (r.fout === 'gebruikt' || r.gebruikt === true)) {
+      if (
+        resultaat &&
+        (
+          resultaat.fout === "gebruikt" ||
+          resultaat.gebruikt === true
+        )
+      ) {
         status(
-          '✕ AL GEBRUIKT',
-          r.naam || '',
-          r.gebruiktOp || 'Ticket is al gescand.',
-          'fout'
+          "✕ AL GEBRUIKT",
+          resultaat.naam || "",
+          resultaat.gebruiktOp ||
+            "Ticket is al gescand.",
+          "fout"
         );
-        setTimeout(klaar, 3200);
+
+        opnieuwKlaarNa(3200);
         return;
       }
 
-      if (r && r.fout === 'niet_betaald') {
+      if (
+        resultaat &&
+        resultaat.fout === "niet_betaald"
+      ) {
         status(
-          '✕ NIET BETAALD',
-          r.naam || '',
-          'Betaling is niet bevestigd.',
-          'fout'
+          "✕ NIET BETAALD",
+          resultaat.naam || "",
+          "Betaling is niet bevestigd.",
+          "fout"
         );
-        setTimeout(klaar, 3200);
+
+        opnieuwKlaarNa(3200);
         return;
       }
 
       fouten.push(
-        (server === OUD ? 'Oude' : 'Nieuwe') +
-        ' server: ' +
-        (r && r.bericht || 'ticket niet gevonden')
+        (server === OUD ? "Oude" : "Nieuwe") +
+        " server: " +
+        (
+          resultaat &&
+          resultaat.bericht ||
+          "ticket niet gevonden"
+        )
       );
 
-      if (r && r.fout && r.fout !== 'ongeldig') {
+      if (
+        resultaat &&
+        resultaat.fout &&
+        resultaat.fout !== "ongeldig"
+      ) {
         break;
       }
 
     } catch (error) {
       fouten.push(
-        (server === OUD ? 'Oude' : 'Nieuwe') +
-        ' server: ' + error.message
+        (server === OUD ? "Oude" : "Nieuwe") +
+        " server: " +
+        error.message
       );
     }
   }
 
   status(
-    '✕ TICKET NIET GOEDGEKEURD',
-    '',
-    fouten.join(' | '),
-    'fout'
+    "✕ TICKET NIET GOEDGEKEURD",
+    "",
+    fouten.join(" | "),
+    "fout"
   );
 
-  setTimeout(klaar, 5000);
+  opnieuwKlaarNa(5000);
+}
+
+
+/* ==========================================
+   SCANNER OPNIEUW KLAARZETTEN
+========================================== */
+
+function opnieuwKlaarNa(ms) {
+  if (resetTimer !== null) {
+    clearTimeout(resetTimer);
+  }
+
+  resetTimer = setTimeout(() => {
+    resetTimer = null;
+    klaar();
+  }, ms);
 }
 
 function klaar() {
   bezig = false;
 
   status(
-    'Klaar voor volgende ticket',
-    '',
-    'Richt de camera op de volgende QR-code.',
-    ''
+    "Klaar voor volgende ticket",
+    "",
+    "Richt de camera op de volgende QR-code.",
+    ""
   );
 }
 
+
+/* ==========================================
+   CAMERA STARTEN
+========================================== */
+
 function start() {
-  pin = el('pin').value.trim();
+  pin = el("pin").value.trim();
 
   if (!pin) {
-    alert('Vul eerst de PIN in.');
+    alert("Vul eerst de PIN in.");
     return;
   }
 
-  el('login').style.display = 'none';
-  el('scanSectie').style.display = 'block';
+  if (camera !== null) {
+    return;
+  }
 
-  if (typeof Html5QrcodeScanner === 'undefined') {
+  el("login").style.display = "none";
+  el("scanSectie").style.display = "block";
+
+  if (
+    typeof Html5QrcodeScanner === "undefined"
+  ) {
     status(
-      '✕ CAMERA NIET GELADEN',
-      '',
-      'Controleer de internetverbinding.',
-      'fout'
+      "✕ CAMERA NIET GELADEN",
+      "",
+      "Controleer de internetverbinding.",
+      "fout"
     );
     return;
   }
 
   camera = new Html5QrcodeScanner(
-    'reader',
+    "reader",
     {
       fps: 10,
       qrbox: {
@@ -349,28 +614,64 @@ function start() {
   );
 
   camera.render(
-    decoded => controleer(decoded),
+    decoded => {
+      /*
+        NIEUW:
+        Laat exact zien wat de camera leest.
+      */
+      console.log("QR-INHOUD:", decoded);
+
+      alert(
+        "De QR-code bevat:\n\n" +
+        decoded
+      );
+
+      /*
+        Na OK wordt de QR-code gecontroleerd.
+      */
+      controleer(decoded);
+    },
     () => {}
   );
 
   klaar();
 }
 
-el('start').addEventListener('click', start);
 
-el('pin').addEventListener('keydown', e => {
-  if (e.key === 'Enter') start();
-});
+/* ==========================================
+   KNOPPEN
+========================================== */
 
-el('check').addEventListener('click', () => {
-  controleer(el('qrInput').value);
-});
+el("start").addEventListener(
+  "click",
+  start
+);
 
-el('qrInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    controleer(el('qrInput').value);
+el("pin").addEventListener(
+  "keydown",
+  event => {
+    if (event.key === "Enter") {
+      start();
+    }
   }
-});
+);
+
+el("check").addEventListener(
+  "click",
+  () => {
+    controleer(el("qrInput").value);
+  }
+);
+
+el("qrInput").addEventListener(
+  "keydown",
+  event => {
+    if (event.key === "Enter") {
+      controleer(el("qrInput").value);
+    }
+  }
+);
+
 </script>
 
 </body>

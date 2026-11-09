@@ -3,8 +3,7 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>14 nov fissa | Ticketscanner</title>
 
@@ -113,6 +112,39 @@
       color: #fff;
     }
 
+    /* NIEUW: GROTE MELDING BOVENAAN */
+
+    .zwevende-melding {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      left: 12px;
+      right: 12px;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 18px 16px;
+      border: 3px solid rgba(255,255,255,0.85);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+      z-index: 99999;
+      font-size: clamp(19px, 5vw, 25px);
+      font-weight: 800;
+      line-height: 1.35;
+      text-align: center;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+      max-height: 45vh;
+      overflow-y: auto;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+
+    .zwevende-melding.actief {
+      opacity: 1;
+      visibility: visible;
+    }
+
     .scheiding {
       border: 0;
       border-top: 1px solid #555;
@@ -135,6 +167,16 @@
 </head>
 
 <body>
+
+  <!-- NIEUW: MELDING DIE ALTIJD ZICHTBAAR IS -->
+
+  <div
+    id="zwevendeMelding"
+    class="zwevende-melding"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true">
+  </div>
 
   <main class="container">
 
@@ -189,11 +231,7 @@
   <script>
     "use strict";
 
-    /*
-      ======================================
-      INSTELLINGEN
-      ======================================
-    */
+    // INSTELLINGEN
 
     const SERVER =
       "https://script.google.com/macros/s/" +
@@ -201,11 +239,7 @@
 
     const REQUEST_TIMEOUT = 20000;
 
-    /*
-      ======================================
-      ELEMENTEN
-      ======================================
-    */
+    // ELEMENTEN
 
     const pinInput =
       document.getElementById("pin");
@@ -225,27 +259,39 @@
     const herstartKnop =
       document.getElementById("herstartKnop");
 
-    /*
-      ======================================
-      STATUS
-      ======================================
-    */
+    const zwevendeMelding =
+      document.getElementById("zwevendeMelding");
+
+    // STATUS
 
     let scanner = null;
     let bezig = false;
 
     let laatsteInvoer = "";
     let laatsteTijd = 0;
+    let meldingTimer = null;
 
-    /*
-      ======================================
-      SCHERM
-      ======================================
-    */
+    // RESULTAAT TONEN
 
     function toon(tekst, soort) {
+
       resultaatVak.textContent = tekst;
       resultaatVak.className = soort || "info";
+
+      // Toon ook een grote zwevende melding.
+
+      clearTimeout(meldingTimer);
+
+      zwevendeMelding.textContent = tekst;
+
+      zwevendeMelding.className =
+        "zwevende-melding actief " + (soort || "info");
+
+      // Verberg de melding na 6 seconden.
+
+      meldingTimer = setTimeout(function() {
+        zwevendeMelding.className = "zwevende-melding";
+      }, 6000);
     }
 
     function debug(tekst) {
@@ -257,31 +303,16 @@
       handmatigKnop.disabled = waarde;
     }
 
-    /*
-      ======================================
-      QR-CODE UITLEZEN
-      ======================================
-
-      De QR-code kan bevatten:
-
-      1. Een ticketlink
-      2. Een controlelink
-      3. Een link met &amp;
-      4. Een URL met extra tekst eromheen
-      5. Alleen id=...&token=...
-
-      Al deze vormen proberen we te lezen.
-    */
+    // QR-CODE UITLEZEN
 
     function leesTicket(invoer) {
+
       let tekst = String(invoer || "")
         .replace(/\uFEFF/g, "")
         .trim();
 
       if (!tekst) {
-        throw new Error(
-          "Er is geen QR-code gelezen."
-        );
+        throw new Error("Er is geen QR-code gelezen.");
       }
 
       tekst = tekst
@@ -293,9 +324,7 @@
       let id = "";
       let token = "";
 
-      /*
-        Methode 1: volledige URL.
-      */
+      // Methode 1: volledige URL
 
       try {
         const url = new URL(tekst);
@@ -304,14 +333,13 @@
         token = url.searchParams.get("token") || "";
 
       } catch (err) {
-        // Probeer de volgende methode.
+        // Probeer volgende methode.
       }
 
-      /*
-        Methode 2: URL ergens in de tekst.
-      */
+      // Methode 2: URL in een langere tekst
 
       if (!id || !token) {
+
         const urlMatch = tekst.match(
           /https?:\/\/[^\s"'<>]+/i
         );
@@ -321,21 +349,18 @@
             const url = new URL(urlMatch[0]);
 
             id = id || url.searchParams.get("id") || "";
-            token = token ||
-              url.searchParams.get("token") || "";
+            token = token || url.searchParams.get("token") || "";
 
           } catch (err) {
-            // Probeer de volgende methode.
+            // Probeer volgende methode.
           }
         }
       }
 
-      /*
-        Methode 3: id en token rechtstreeks
-        uit de QR-tekst halen.
-      */
+      // Methode 3: id en token rechtstreeks uitlezen
 
       if (!id || !token) {
+
         const idMatch = tekst.match(
           /(?:^|[?&#\s])id=([^&#\s]+)/i
         );
@@ -346,8 +371,7 @@
 
         if (idMatch) {
           try {
-            id = id ||
-              decodeURIComponent(idMatch[1]);
+            id = id || decodeURIComponent(idMatch[1]);
           } catch (err) {
             id = id || idMatch[1];
           }
@@ -355,17 +379,14 @@
 
         if (tokenMatch) {
           try {
-            token = token ||
-              decodeURIComponent(tokenMatch[1]);
+            token = token || decodeURIComponent(tokenMatch[1]);
           } catch (err) {
             token = token || tokenMatch[1];
           }
         }
       }
 
-      /*
-        Methode 4: querystring zonder URL.
-      */
+      // Methode 4: querystring zonder URL
 
       if (!id || !token) {
         try {
@@ -386,8 +407,7 @@
 
       if (!id || !token) {
         throw new Error(
-          "QR bevat geen herkenbare ticketlink " +
-          "met id en token."
+          "QR bevat geen herkenbare ticketlink met id en token."
         );
       }
 
@@ -397,19 +417,10 @@
       };
     }
 
-    /*
-      ======================================
-      JSONP VERBINDING
-      ======================================
-
-      GitHub Pages en Apps Script staan
-      op verschillende domeinen.
-
-      Daarom gebruiken we JSONP, passend
-      bij de bestaande scanapi in Code.gs.
-    */
+    // VERBINDING MET GOOGLE APPS SCRIPT
 
     function vraagServer(id, token, pin) {
+
       return new Promise(function(resolve, reject) {
 
         const callbackNaam =
@@ -418,8 +429,7 @@
           "_" +
           Math.floor(Math.random() * 1000000);
 
-        const script =
-          document.createElement("script");
+        const script = document.createElement("script");
 
         let klaar = false;
 
@@ -432,6 +442,7 @@
         }, REQUEST_TIMEOUT);
 
         function opruimen() {
+
           clearTimeout(timer);
 
           try {
@@ -446,6 +457,7 @@
         }
 
         function afronden(fout, data) {
+
           if (klaar) return;
 
           klaar = true;
@@ -479,20 +491,16 @@
         params.set("callback", callbackNaam);
         params.set("_", String(Date.now()));
 
-        script.src =
-          SERVER + "?" + params.toString();
+        script.src = SERVER + "?" + params.toString();
 
         document.head.appendChild(script);
       });
     }
 
-    /*
-      ======================================
-      RESULTAAT VERWERKEN
-      ======================================
-    */
+    // RESULTAAT VAN TICKETSERVER
 
     function toonServerResultaat(data) {
+
       if (!data || typeof data !== "object") {
         toon(
           "❌ Ongeldig antwoord van ticketserver.",
@@ -552,13 +560,10 @@
       );
     }
 
-    /*
-      ======================================
-      TICKET CONTROLEREN
-      ======================================
-    */
+    // TICKET CONTROLEREN
 
     async function verwerkTicket(invoer) {
+
       if (bezig) return;
 
       const pin = pinInput.value.trim();
@@ -577,12 +582,8 @@
         ticket = leesTicket(invoer);
 
       } catch (err) {
-        toon(err.message, "fout");
 
-        /*
-          Geen volledige QR-link tonen.
-          Daarin staat een geheime token.
-        */
+        toon(err.message, "fout");
 
         debug(
           "De camera heeft tekst gelezen, " +
@@ -592,13 +593,9 @@
         return;
       }
 
-      /*
-        Voorkom snelle dubbele scans.
-      */
+      // Voorkom snelle dubbele scans.
 
-      const sleutel =
-        ticket.id + "|" + ticket.token;
-
+      const sleutel = ticket.id + "|" + ticket.token;
       const nu = Date.now();
 
       if (
@@ -623,6 +620,7 @@
       );
 
       try {
+
         const antwoord = await vraagServer(
           ticket.id,
           ticket.token,
@@ -632,9 +630,9 @@
         toonServerResultaat(antwoord);
 
       } catch (err) {
+
         toon(
-          "❌ VERBINDINGSFOUT\n" +
-          err.message,
+          "❌ VERBINDINGSFOUT\n" + err.message,
           "fout"
         );
 
@@ -643,28 +641,19 @@
       }
     }
 
-    /*
-      ======================================
-      CAMERA
-      ======================================
-    */
+    // CAMERA
 
     function cameraSucces(decodedText) {
       verwerkTicket(decodedText);
     }
 
     function cameraFout(errorMessage) {
-      /*
-        Niet elk camerabeeld bevat een QR-code.
-        Daarom tonen we deze normale
-        leesmeldingen niet als fout.
-      */
+      // Normale camera-leesmeldingen negeren.
     }
 
     function startCamera() {
-      if (
-        typeof Html5QrcodeScanner === "undefined"
-      ) {
+
+      if (typeof Html5QrcodeScanner === "undefined") {
         toon(
           "QR-scannerbibliotheek kon niet worden geladen.",
           "fout"
@@ -692,7 +681,10 @@
       );
     }
 
+    // CAMERA OPNIEUW STARTEN
+
     async function herstartCamera() {
+
       toon(
         "Camera opnieuw starten...",
         "info"
@@ -706,8 +698,7 @@
         }
       }
 
-      document.getElementById("reader")
-        .innerHTML = "";
+      document.getElementById("reader").innerHTML = "";
 
       scanner = null;
 
@@ -717,11 +708,7 @@
       startCamera();
     }
 
-    /*
-      ======================================
-      KNOPPEN
-      ======================================
-    */
+    // KNOPPEN
 
     handmatigKnop.addEventListener(
       "click",
@@ -750,16 +737,13 @@
       herstartCamera
     );
 
-    /*
-      ======================================
-      START
-      ======================================
-    */
+    // START SCANNER
 
     window.addEventListener(
       "load",
       startCamera
     );
+
   </script>
 
 </body>
